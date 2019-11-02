@@ -3,7 +3,7 @@ STACK_CONFIG ?= stack.jsonnet
 
 CODE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 CWD := ${CURDIR}
-BINPATH := $(CWD)/build/partitioner $(CWD)/build/listParquet $(CWD)/build/mergeParquet $(CWD)/build/apiHandler $(CWD)/build/errorHandler
+BINPATH := $(CWD)/build/createPartition $(CWD)/build/listParquet $(CWD)/build/mergeParquet $(CWD)/build/apiHandler $(CWD)/build/errorHandler
 SRC := $(CODE_DIR)/internal/*.go
 
 TEMPLATE_FILE := template.json
@@ -27,8 +27,8 @@ build: $(BINPATH)
 testplugin:
 	cd $(CODE_DIR) && go test -v ./internal && cd $(CWD)
 
-$(CWD)/build/partitioner: $(CODE_DIR)/lambda/partitioner/*.go $(SRC)
-	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(CWD)/build/partitioner $(CODE_DIR)/lambda/partitioner && cd $(CWD)
+$(CWD)/build/createPartition: $(CODE_DIR)/lambda/createPartition/*.go $(SRC)
+	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(CWD)/build/createPartition $(CODE_DIR)/lambda/createPartition && cd $(CWD)
 $(CWD)/build/listParquet: $(CODE_DIR)/lambda/listParquet/*.go $(SRC)
 	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(CWD)/build/listParquet $(CODE_DIR)/lambda/listParquet && cd $(CWD)
 $(CWD)/build/mergeParquet: $(CODE_DIR)/lambda/mergeParquet/*.go $(SRC)

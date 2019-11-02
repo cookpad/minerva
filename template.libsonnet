@@ -287,11 +287,11 @@
         },
       },
 
-      Partitioner: {
+      CreatePartition: {
         Type: 'AWS::Serverless::Function',
         Properties: {
           CodeUri: 'build',
-          Handler: 'partitioner',
+          Handler: 'createPartition',
           Runtime: 'go1.x',
           Timeout: 30,
           MemorySize: 128,
