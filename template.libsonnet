@@ -21,6 +21,22 @@
     ),
     local endpointName = { 'Fn::Sub': '${AWS::StackName}' },
 
+    local sqsPolicy = {
+      Version: '2012-10-17',
+      Id: 'MinervaIndexerSQSPolicy',
+      Statement: [{
+        Sid: 'MinervaIndexerSQSPolicy001',
+        Effect: 'Allow',
+        Principal: '*',
+        Action: 'sqs:SendMessage',
+        Resource: '${IndexerQueue.Arn}',
+        Condition: {
+          ArnEquals: { 'aws:SourceArn': SnsTopicArn },
+        },
+      }],
+    },
+
+
     local LambdaRoleTemplate = {
       LambdaRole: {
         Type: 'AWS::IAM::Role',
@@ -209,7 +225,7 @@
               MESSAGE_TABLE_NAME: MessageTableName,
               META_TABLE_NAME: { Ref: 'MetaTable' },
               PARTITION_QUEUE: { Ref: 'PartitionQueue' },
-              LOG_LEVEL: 'INFO',
+              LOG_LEVEL: 'DEBUG',
             },
           },
           DeadLetterQueue: {
@@ -217,9 +233,12 @@
             TargetArn: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
           },
           Events: {
-            ObjectCreated: {
-              Type: 'SNS',
-              Properties: { Topic: SnsTopicArn },
+            IndexerQueue: {
+              Type: 'SQS',
+              Properties: {
+                Queue: { 'Fn::GetAtt': 'IndexerQueue.Arn' },
+                BatchSize: 1,
+              },
             },
           },
         } + IndexerProperty,
@@ -407,7 +426,26 @@
       // SQS
       IndexerQueue: {
         Type: 'AWS::SQS::Queue',
+        Properties: {
+          VisibilityTimeout: 600,
+        },
       },
+      IndexerQueuePolicy: {
+        Type: 'AWS::SQS::QueuePolicy',
+        Properties: {
+          PolicyDocument: { 'Fn::Sub': std.toString(sqsPolicy) },
+          Queues: [{ Ref: 'IndexerQueue' }],
+        },
+      },
+      IndexerQueueSubscription: {
+        Type: 'AWS::SNS::Subscription',
+        Properties: {
+          Endpoint: { 'Fn::GetAtt': 'IndexerQueue.Arn' },
+          Protocol: 'sqs',
+          TopicArn: SnsTopicArn,
+        },
+      },
+
       MergeQueue: {
         Type: 'AWS::SQS::Queue',
         Properties: {

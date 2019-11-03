@@ -15,20 +15,27 @@ import (
 var logger = internal.Logger
 
 // RunIndexer is main handler of indexer. It requires log reader based on rlogs
-func RunIndexer(ctx context.Context, event events.SNSEvent, reader *rlogs.Reader) error {
+func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
 	logger.SetLevel(logrus.InfoLevel)
 	logger.SetFormatter(&logrus.JSONFormatter{})
 	internal.SetLogLevel(os.Getenv("LOG_LEVEL"))
 
-	logger.WithField("event", event).Debug("Start handler")
+	logger.WithField("event", sqsEvent).Debug("Start handler")
 
-	for _, record := range event.Records {
-		var s3event events.S3Event
-		if err := json.Unmarshal([]byte(record.SNS.Message), &s3event); err != nil {
-			return errors.Wrapf(err, "Fail to unmarshal S3 event in SNS message: %s", record.SNS.Message)
+	for _, sqsRecord := range sqsEvent.Records {
+		var snsEntity events.SNSEntity
+		if err := json.Unmarshal([]byte(sqsRecord.Body), &snsEntity); err != nil {
+			return errors.Wrapf(err, "Fail to unmarshal SNS event in SQS message: %s", sqsRecord.Body)
 		}
+		logger.WithField("snsEntity", snsEntity).Debug("Received SNS Event")
 
-		for _, s3record := range s3event.Records {
+		var s3Event events.S3Event
+		if err := json.Unmarshal([]byte(snsEntity.Message), &s3Event); err != nil {
+			return errors.Wrapf(err, "Fail to unmarshal S3 event in SNS message: %s", snsEntity.Message)
+		}
+		logger.WithField("s3Event", s3Event).Debug("Received S3 Event")
+
+		for _, s3record := range s3Event.Records {
 			args := arguments{
 				IndexTable:   os.Getenv("INDEX_TABLE_NAME"),
 				MessageTable: os.Getenv("MESSAGE_TABLE_NAME"),
