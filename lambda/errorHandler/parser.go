@@ -44,11 +44,10 @@ func jsonToRecords(jdata string) ([]interface{}, error) {
 
 		default:
 			var rec map[string]interface{}
-			if err := json.Unmarshal(recordData, rec); err != nil {
+			if err := json.Unmarshal(recordData, &rec); err != nil {
 				return nil, errors.Wrapf(err, "Fail to unmarshal inner record: %v", string(recordData))
 			}
 			records = append(records, rec)
-
 		}
 	}
 
