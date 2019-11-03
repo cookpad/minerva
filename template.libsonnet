@@ -388,7 +388,7 @@
           Environment: {
             Variables: {
               RETRY_QUEUE: { Ref: 'IndexerRetryQueue' },
-              INDEXER_QUEUE: { Ref: 'IndexerRetryQueue' },
+              INDEXER_QUEUE: { Ref: 'IndexerQueue' },
               LOG_LEVEL: 'DEBUG',
             },
           },

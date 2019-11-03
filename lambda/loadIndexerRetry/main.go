@@ -14,7 +14,12 @@ var logger = internal.Logger
 func handleRequest(ctx context.Context, event interface{}) error {
 	logger.WithField("event", event).Info("Start loadIndexerRetry")
 
-	return nil
+	args := arguments{
+		SrcSQS: os.Getenv("RETRY_QUEUE"),
+		DstSQS: os.Getenv("INDEXER_QUEUE"),
+	}
+
+	return handler(args)
 }
 
 func main() {
