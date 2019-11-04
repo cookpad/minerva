@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
 )
 
@@ -38,12 +39,16 @@ func sqsURLtoRegion(url string) (string, error) {
 const maxQueueCount = 1024
 
 func handler(args arguments) error {
-	sqsRegion, err := sqsURLtoRegion(args.SrcSQS)
+	srcRegion, err := sqsURLtoRegion(args.SrcSQS)
 	if err != nil {
-		return errors.Wrapf(err, "Fail to parse SQS URL: %s", args.SrcSQS)
+		return errors.Wrapf(err, "Fail to parse source SQS URL: %s", args.SrcSQS)
+	}
+	dstRegion, err := sqsURLtoRegion(args.DstSQS)
+	if err != nil {
+		return errors.Wrapf(err, "Fail to parse destination SQS URL: %s", args.SrcSQS)
 	}
 
-	ssn := session.Must(session.NewSession(&aws.Config{Region: aws.String(sqsRegion)}))
+	ssn := session.Must(session.NewSession(&aws.Config{Region: aws.String(srcRegion)}))
 	sqsClient := sqs.New(ssn)
 
 	for i := 0; i < maxQueueCount; i++ {
@@ -62,23 +67,20 @@ func handler(args arguments) error {
 
 		for _, msg := range resp.Messages {
 			logger.WithField("msg", msg).Info("Message")
-			/*
-				body := aws.StringValue(msg.Body)
-				if err := json.Unmarshal([]byte(body), &alert); err != nil {
-					return nil, errors.Wrapf(err, "Fail to unmarshal sqs message to alert: %s", body)
-				}
 
-				alerts = append(alerts, alert)
+			if err := internal.SendSQS(msg, dstRegion, args.DstSQS); err != nil {
+				return errors.Wrap(err, "Fail to send SQS for retry")
+			}
 
-				out, err := client.DeleteMessage(&sqs.DeleteMessageInput{
-					QueueUrl:      &alertQueueURL,
-					ReceiptHandle: msg.ReceiptHandle,
-				})
-				if err != nil {
-					return nil, errors.Wrap(err, "Fail to delete alert message in SQS")
-				}
-				Logger.WithField("out", out).Debug("Deleted")
-			*/
+			out, err := sqsClient.DeleteMessage(&sqs.DeleteMessageInput{
+				QueueUrl:      &args.SrcSQS,
+				ReceiptHandle: msg.ReceiptHandle,
+			})
+			if err != nil {
+				return errors.Wrap(err, "Fail to delete alert message in SQS")
+			}
+
+			logger.WithField("out", out).Debug("Deleted")
 		}
 	}
 
