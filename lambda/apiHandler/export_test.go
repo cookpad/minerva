@@ -9,7 +9,7 @@ var (
 
 func newRequest(queries []string, start, end time.Time) request {
 	return request{
-		Queries:       queries,
+		Query:         queries,
 		StartDateTime: start,
 		EndDateTime:   end,
 	}

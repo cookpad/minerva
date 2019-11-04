@@ -9,159 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/athena"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/m-mizutani/minerva/internal"
 	"github.com/sirupsen/logrus"
 )
 
 const hardLimitOfQueryResult = 1000 * 1000 // 1,000,000
-
-type startQueryExecutionArgument struct {
-	DatabaseName     string
-	IndexTableName   string
-	MessageTableName string
-	Region           string
-	Output           string
-	Body             string
-}
-
-type startQueryExecutionResponse struct {
-	QueryID string `json:"query_id"`
-}
-
-type request struct {
-	Queries       []string  `json:"queries"`
-	StartDateTime time.Time `json:"start_dt"`
-	EndDateTime   time.Time `json:"end_dt"`
-}
-
-func argsToSQL(req request, idxTable, msgTable string) (*string, error) {
-	tokenizer := internal.NewSimpleTokenizer()
-
-	termSet := map[string]struct{}{}
-
-	if len(req.Queries) == 0 {
-		return nil, fmt.Errorf("No query. queries field is required")
-	}
-
-	for _, query := range req.Queries {
-		tokens := tokenizer.Split(query)
-		for _, t := range tokens {
-			if t.IsDelim {
-				continue
-			}
-
-			termSet[t.Data] = struct{}{}
-		}
-	}
-
-	var termCond []string
-	for t := range termSet {
-		termCond = append(termCond, fmt.Sprintf("term = '%s'", t))
-	}
-
-	var queryCond []string
-	for _, query := range req.Queries {
-		queryCond = append(queryCond, fmt.Sprintf("messages.message LIKE '%%%s%%'", query))
-	}
-
-	dtFmt := "2006-01-02"
-	start, end := req.StartDateTime.UTC(), req.EndDateTime.UTC()
-
-	head := fmt.Sprintf(`
-	SELECT %s.tag
-		, %s.timestamp
-	 	, %s.message
-	FROM %s
-	LEFT JOIN %s
-	ON %s.object_id = %s.object_id
-		AND  %s.seq = %s.seq
-	 `,
-		idxTable,
-		msgTable,
-		msgTable,
-		idxTable, msgTable,
-		idxTable, msgTable,
-		idxTable, msgTable)
-
-	where := fmt.Sprintf(`WHERE (%s)
-	AND '%s' <= indices.dt AND indices.dt <= '%s'
-	AND '%s' <= messages.dt AND messages.dt <= '%s'
-	`, strings.Join(termCond, " OR "),
-		start.Format(dtFmt), end.Format(dtFmt),
-		start.Format(dtFmt), end.Format(dtFmt))
-
-	groupBy := fmt.Sprintf(`GROUP BY  %s.object_id, %s.seq, %s.tag, %s.message, %s.timestamp
-	HAVING COUNT(DISTINCT %s.term) = %d AND
-	%d <= messages.timestamp AND messages.timestamp <= %d
-	AND %s
-	ORDER BY messages.timestamp
-	LIMIT %d;`,
-		idxTable, idxTable, idxTable, msgTable, msgTable,
-		idxTable, len(termCond),
-		start.Unix(), end.Unix(),
-		strings.Join(queryCond, " AND "),
-		hardLimitOfQueryResult)
-
-	sql := head + where + groupBy
-	return &sql, nil
-}
-
-func startQueryExecution(args startQueryExecutionArgument) (*startQueryExecutionResponse, apiError) {
-	logger.WithField("args", args).Info("Start putQuery")
-
-	var req request
-	if err := json.Unmarshal([]byte(args.Body), &req); err != nil {
-		return nil, wrapUserError(err, 400, "Fail to parse requested body")
-	}
-
-	sql, err := argsToSQL(req, args.IndexTableName, args.MessageTableName)
-	if err != nil {
-		return nil, wrapUserError(err, 400, "Fail to create SQL for Athena")
-	}
-
-	ssn := session.Must(session.NewSession(&aws.Config{Region: &args.Region}))
-	athenaClient := athena.New(ssn)
-
-	input := &athena.StartQueryExecutionInput{
-		QueryExecutionContext: &athena.QueryExecutionContext{
-			Database: aws.String(args.DatabaseName),
-		},
-		QueryString: sql,
-		ResultConfiguration: &athena.ResultConfiguration{
-			OutputLocation: &args.Output,
-		},
-	}
-
-	logger.WithField("input", input).Info("Athena Query")
-
-	response, err := athenaClient.StartQueryExecution(input)
-	logger.WithFields(logrus.Fields{
-		"err":    err,
-		"input":  input,
-		"output": response,
-	}).Debug("done")
-
-	if err != nil {
-		return nil, wrapSystemError(err, 500, "Fail StartQueryExecution in putQuery")
-	}
-	logger.WithField("response", response).Debug("Sent query")
-
-	return &startQueryExecutionResponse{
-		QueryID: aws.StringValue(response.QueryExecutionId),
-	}, nil
-}
-
-type getQueryExecutionArgument struct {
-	DatabaseName string
-	Region       string
-	QueryID      string
-	Limit        string
-	Offset       string
-}
 
 type logData struct {
 	Tag       string      `json:"tag"`
@@ -281,17 +137,22 @@ func loadLogs(region, s3path, limit, offset string) ([]logData, *getQueryExecuti
 	return logs, &getQueryExecutionMetaData{Total: total, Offset: qOffset}, nil
 }
 
-func getQueryExecution(args getQueryExecutionArgument) (*getQueryExecutionResponse, apiError) {
+func getSearchResult(args arguments) (*events.APIGatewayProxyResponse, apiError) {
 	logger.WithField("args", args).Info("Start getQuery")
+
+	searchID := args.Request.PathParameters["search_id"]
+	limit := args.Request.QueryStringParameters["limit"]
+	offset := args.Request.QueryStringParameters["offset"]
+
 	resp := getQueryExecutionResponse{
-		QueryID: args.QueryID,
+		QueryID: searchID,
 	}
 
 	ssn := session.Must(session.NewSession(&aws.Config{Region: &args.Region}))
 	athenaClient := athena.New(ssn)
 
 	output, err := athenaClient.GetQueryExecution(&athena.GetQueryExecutionInput{
-		QueryExecutionId: &args.QueryID,
+		QueryExecutionId: &searchID,
 	})
 	if err != nil {
 		return nil, wrapSystemError(err, 500, "Fail GetQueryExecution in getQuery")
@@ -312,7 +173,7 @@ func getQueryExecution(args getQueryExecutionArgument) (*getQueryExecutionRespon
 	resp.MetaData.Status = aws.StringValue(output.QueryExecution.Status.State)
 	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {
 		s3path := aws.StringValue(output.QueryExecution.ResultConfiguration.OutputLocation)
-		logs, meta, err := loadLogs(args.Region, s3path, args.Limit, args.Offset)
+		logs, meta, err := loadLogs(args.Region, s3path, limit, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -322,5 +183,5 @@ func getQueryExecution(args getQueryExecutionArgument) (*getQueryExecutionRespon
 	}
 	logger.WithField("output", output).Debug("done")
 
-	return &resp, nil
+	return respond(200, &resp), nil
 }

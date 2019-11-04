@@ -558,19 +558,27 @@
             },
           },
           Events: {
-            PostQuery: {
+            PostSearch: {
               Type: 'Api',
               Properties: {
                 Method: 'post',
-                Path: '/v1/query',
+                Path: '/v1/search',
                 RestApiId: { Ref: 'ApiGW' },
               },
             },
-            GetQuery: {
+            GetSearchResult: {
               Type: 'Api',
               Properties: {
                 Method: 'get',
-                Path: '/v1/query',
+                Path: '/v1/search/{search_id}/result',
+                RestApiId: { Ref: 'ApiGW' },
+              },
+            },
+            GetSearchTimeline: {
+              Type: 'Api',
+              Properties: {
+                Method: 'get',
+                Path: '/v1/search/{search_id}/timeline',
                 RestApiId: { Ref: 'ApiGW' },
               },
             },

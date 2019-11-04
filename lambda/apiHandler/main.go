@@ -13,10 +13,23 @@ import (
 
 var logger = internal.Logger
 
-func respond(code int, msg interface{}) events.APIGatewayProxyResponse {
-	raw, _ := json.Marshal(msg)
-	return events.APIGatewayProxyResponse{
-		Body:       string(raw),
+func respond(code int, msg interface{}) *events.APIGatewayProxyResponse {
+	var body string
+
+	switch msg.(type) {
+	case string:
+		v := struct {
+			Message string `json:"message"`
+		}{Message: msg.(string)}
+		raw, _ := json.Marshal(v)
+		body = string(raw)
+	default:
+		raw, _ := json.Marshal(msg)
+		body = string(raw)
+	}
+
+	return &events.APIGatewayProxyResponse{
+		Body:       body,
 		StatusCode: code,
 	}
 }
@@ -47,40 +60,20 @@ func main() {
 			"request": request,
 		}).Info("entering handler")
 
-		switch request.Path {
-		case "/v1/query":
-			switch request.HTTPMethod {
-			case "POST":
-				args := startQueryExecutionArgument{
-					DatabaseName:     os.Getenv("ATHENA_DB_NAME"),
-					IndexTableName:   os.Getenv("INDEX_TABLE_NAME"),
-					MessageTableName: os.Getenv("MESSAGE_TABLE_NAME"),
-					Output:           fmt.Sprintf("s3://%s/%soutput", os.Getenv("S3_BUCKET"), os.Getenv("S3_PREFIX")),
-					Region:           os.Getenv("AWS_REGION"),
-					Body:             request.Body,
-				}
-				resp, err := startQueryExecution(args)
-				if err != nil {
-					return respondError(err), nil
-				}
-				return respond(201, resp), nil
-
-			case "GET":
-				args := getQueryExecutionArgument{
-					DatabaseName: os.Getenv("ATHENA_DB_NAME"),
-					Region:       os.Getenv("AWS_REGION"),
-					QueryID:      request.QueryStringParameters["query_id"],
-					Limit:        request.QueryStringParameters["limit"],
-					Offset:       request.QueryStringParameters["offset"],
-				}
-				resp, err := getQueryExecution(args)
-				if err != nil {
-					return respondError(err), nil
-				}
-				return respond(200, resp), nil
-			}
+		args := arguments{
+			DatabaseName:     os.Getenv("ATHENA_DB_NAME"),
+			IndexTableName:   os.Getenv("INDEX_TABLE_NAME"),
+			MessageTableName: os.Getenv("MESSAGE_TABLE_NAME"),
+			OutputPath:       fmt.Sprintf("s3://%s/%soutput", os.Getenv("S3_BUCKET"), os.Getenv("S3_PREFIX")),
+			Region:           os.Getenv("AWS_REGION"),
+			Request:          request,
 		}
 
-		return respond(200, "ok"), nil
+		resp, err := handler(args)
+		if err != nil {
+			return respondError(err), nil
+		}
+
+		return *resp, nil
 	})
 }
