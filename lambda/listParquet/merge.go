@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	objectTotalSizeLimit  int64 = 64 * 1000 * 1000 // 64MB
+	objectTotalSizeLimit  int64 = 48 * 1000 * 1000 // 48MB
 	messageTotalSizeLimit       = 228 * 1000       // 228KB
 )
 
