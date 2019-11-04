@@ -21,6 +21,22 @@
     ),
     local endpointName = { 'Fn::Sub': '${AWS::StackName}' },
 
+    local sqsPolicy = {
+      Version: '2012-10-17',
+      Id: 'MinervaIndexerSQSPolicy',
+      Statement: [{
+        Sid: 'MinervaIndexerSQSPolicy001',
+        Effect: 'Allow',
+        Principal: '*',
+        Action: 'sqs:SendMessage',
+        Resource: '${IndexerQueue.Arn}',
+        Condition: {
+          ArnEquals: { 'aws:SourceArn': SnsTopicArn },
+        },
+      }],
+    },
+
+
     local LambdaRoleTemplate = {
       LambdaRole: {
         Type: 'AWS::IAM::Role',
@@ -209,17 +225,20 @@
               MESSAGE_TABLE_NAME: MessageTableName,
               META_TABLE_NAME: { Ref: 'MetaTable' },
               PARTITION_QUEUE: { Ref: 'PartitionQueue' },
-              LOG_LEVEL: 'INFO',
+              LOG_LEVEL: 'DEBUG',
             },
           },
           DeadLetterQueue: {
             Type: 'SQS',
-            TargetArn: { 'Fn::GetAtt': 'DeadLetterQueue.Arn' },
+            TargetArn: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
           },
           Events: {
-            ObjectCreated: {
-              Type: 'SNS',
-              Properties: { Topic: SnsTopicArn },
+            IndexerQueue: {
+              Type: 'SQS',
+              Properties: {
+                Queue: { 'Fn::GetAtt': 'IndexerQueue.Arn' },
+                BatchSize: 1,
+              },
             },
           },
         } + IndexerProperty,
@@ -242,7 +261,7 @@
           },
           DeadLetterQueue: {
             Type: 'SQS',
-            TargetArn: { 'Fn::GetAtt': 'DeadLetterQueue.Arn' },
+            TargetArn: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
           },
           Events: {
             MergeJob: {
@@ -276,7 +295,7 @@
           },
           DeadLetterQueue: {
             Type: 'SQS',
-            TargetArn: { 'Fn::GetAtt': 'DeadLetterQueue.Arn' },
+            TargetArn: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
           },
           Events: {
             Every5mins: {
@@ -308,7 +327,7 @@
           },
           DeadLetterQueue: {
             Type: 'SQS',
-            TargetArn: { 'Fn::GetAtt': 'DeadLetterQueue.Arn' },
+            TargetArn: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
           },
           Events: {
             PartitionJob: {
@@ -322,7 +341,7 @@
         },
       },
 
-      ErrorHandler: {
+      errorHandler: {
         Type: 'AWS::Serverless::Function',
         Properties: {
           CodeUri: 'build',
@@ -331,13 +350,46 @@
           Timeout: 30,
           MemorySize: 128,
           Role: LambdaRole,
+          Environment: {
+            Variables: {
+              GENERAL_DLQ: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
+              INDEXER_DLQ: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
+              RETRY_QUEUE: { Ref: 'IndexerRetryQueue' },
+            },
+          },
           Events: {
-            PartitionJob: {
+            GeneralDLQ: {
               Type: 'SQS',
               Properties: {
-                Queue: { 'Fn::GetAtt': 'DeadLetterQueue.Arn' },
+                Queue: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
                 BatchSize: 10,
               },
+            },
+            IndexerDLQ: {
+              Type: 'SQS',
+              Properties: {
+                Queue: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
+                BatchSize: 10,
+              },
+            },
+          },
+        },
+      },
+
+      LoadIndexerRetry: {
+        Type: 'AWS::Serverless::Function',
+        Properties: {
+          CodeUri: 'build',
+          Handler: 'loadIndexerRetry',
+          Runtime: 'go1.x',
+          Timeout: 300,
+          MemorySize: 128,
+          Role: LambdaRole,
+          Environment: {
+            Variables: {
+              RETRY_QUEUE: { Ref: 'IndexerRetryQueue' },
+              INDEXER_QUEUE: { Ref: 'IndexerQueue' },
+              LOG_LEVEL: 'DEBUG',
             },
           },
         },
@@ -370,7 +422,30 @@
         },
       },
 
+
       // SQS
+      IndexerQueue: {
+        Type: 'AWS::SQS::Queue',
+        Properties: {
+          VisibilityTimeout: 600,
+        },
+      },
+      IndexerQueuePolicy: {
+        Type: 'AWS::SQS::QueuePolicy',
+        Properties: {
+          PolicyDocument: { 'Fn::Sub': std.toString(sqsPolicy) },
+          Queues: [{ Ref: 'IndexerQueue' }],
+        },
+      },
+      IndexerQueueSubscription: {
+        Type: 'AWS::SNS::Subscription',
+        Properties: {
+          Endpoint: { 'Fn::GetAtt': 'IndexerQueue.Arn' },
+          Protocol: 'sqs',
+          TopicArn: SnsTopicArn,
+        },
+      },
+
       MergeQueue: {
         Type: 'AWS::SQS::Queue',
         Properties: {
@@ -380,7 +455,13 @@
       PartitionQueue: {
         Type: 'AWS::SQS::Queue',
       },
-      DeadLetterQueue: {
+      IndexerDeadLetterQueue: {
+        Type: 'AWS::SQS::Queue',
+      },
+      GeneralDeadLetterQueue: {
+        Type: 'AWS::SQS::Queue',
+      },
+      IndexerRetryQueue: {
         Type: 'AWS::SQS::Queue',
       },
 
