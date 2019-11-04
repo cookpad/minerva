@@ -36,11 +36,12 @@ type IndexRecord struct {
 	// minerva can have only about 50 tags for 1 year (365 days * 50 tags = 18250)
 	// Then I need to consider a case that partition "tg" can not be used and
 	// indexRecord should have Tag field.
-	Tag      string `parquet:"name=tag, type=UTF8, encoding=PLAIN_DICTIONARY" json:"tag"`
-	Field    string `parquet:"name=field, type=UTF8, encoding=PLAIN_DICTIONARY" json:"field"`
-	Term     string `parquet:"name=term, type=UTF8, encoding=PLAIN_DICTIONARY" json:"term"`
-	ObjectID int64  `parquet:"name=object_id, type=INT64" json:"object_id"`
-	Seq      int32  `parquet:"name=seq, type=INT32" json:"seq"`
+	Tag       string `parquet:"name=tag, type=UTF8, encoding=PLAIN_DICTIONARY" json:"tag"`
+	Timestamp int64  `parquet:"name=timestamp, type=INT64" json:"timestamp"`
+	Field     string `parquet:"name=field, type=UTF8, encoding=PLAIN_DICTIONARY" json:"field"`
+	Term      string `parquet:"name=term, type=UTF8, encoding=PLAIN_DICTIONARY" json:"term"`
+	ObjectID  int64  `parquet:"name=object_id, type=INT64" json:"object_id"`
+	Seq       int32  `parquet:"name=seq, type=INT32" json:"seq"`
 }
 
 // ObjectRecord has mapping from ObjectID to S3Bucket and S3Key to reduce index parquet size.

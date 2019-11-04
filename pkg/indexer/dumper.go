@@ -186,11 +186,12 @@ func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 
 	for it := range terms {
 		rec := internal.IndexRecord{
-			Tag:      q.Tag,
-			Field:    it.field,
-			Term:     it.term,
-			ObjectID: objID,
-			Seq:      int32(q.Seq),
+			Tag:       q.Tag,
+			Timestamp: q.Timestamp.Unix(),
+			Field:     it.field,
+			Term:      it.term,
+			ObjectID:  objID,
+			Seq:       int32(q.Seq),
 		}
 
 		if err := x.refresh(len(q.Tag) + len(it.field) + len(it.term)); err != nil {
