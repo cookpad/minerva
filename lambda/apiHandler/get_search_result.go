@@ -29,6 +29,7 @@ type getQueryExecutionMetaData struct {
 	Status         string    `json:"status"`
 	Total          int64     `json:"total"`
 	Offset         int64     `json:"offset"`
+	Limit          int64     `json:"limit"`
 	SubmittedTime  time.Time `json:"submitted_time"`
 	ElapsedSeconds float64   `json:"elapsed_seconds"`
 }
@@ -110,7 +111,7 @@ func loadLogs(region, s3path, limit, offset string) ([]logData, *getQueryExecuti
 	}).Debug("Download s3 object")
 
 	if qLimit > 10000 {
-		return nil, nil, newUserError("limit number is too big, must be under 10000", 400)
+		return nil, nil, newUserErrorf(400, "limit number is too big, must be under 10000")
 	}
 
 	ssn := session.Must(session.NewSession(&aws.Config{Region: &region}))
@@ -134,7 +135,7 @@ func loadLogs(region, s3path, limit, offset string) ([]logData, *getQueryExecuti
 		return nil, nil, wrapSystemErrorf(err, 500, "Fail to extract log data: %s", s3path)
 	}
 
-	return logs, &getQueryExecutionMetaData{Total: total, Offset: qOffset}, nil
+	return logs, &getQueryExecutionMetaData{Total: total, Offset: qOffset, Limit: qLimit}, nil
 }
 
 func getSearchResult(args arguments) (*events.APIGatewayProxyResponse, apiError) {
@@ -180,6 +181,7 @@ func getSearchResult(args arguments) (*events.APIGatewayProxyResponse, apiError)
 		resp.Logs = logs
 		resp.MetaData.Total = meta.Total
 		resp.MetaData.Offset = meta.Offset
+		resp.MetaData.Limit = meta.Limit
 	}
 	logger.WithField("output", output).Debug("done")
 

@@ -47,7 +47,12 @@ const (
 
 // DumperParquetSizeLimit specifies maximum parquet file size.
 // When hitting the size, refresh (close & open another file).
-var DumperParquetSizeLimit = 320 * 1000 * 1000 // 320MB
+var DumperParquetSizeLimit = 256 * 1000 * 1000 // 256MB
+
+const (
+	// About parquet format: https://parquet.apache.org/documentation/latest/
+	parquetRowGroupSize = 16 * 1024 * 1024 //16M
+)
 
 func (x *baseDumper) Files() []*parquetFile              { return x.files }
 func (x *baseDumper) Schema() internal.ParquetSchemaName { return x.baseDst.Schema }
@@ -121,7 +126,12 @@ func (x *baseDumper) Close() error {
 		"dataSize":    x.dataSize,
 	}).Debug("Closing dumper")
 
-	defer x.current.fw.Close()
+	defer func() {
+		x.current.fw.Close()
+		x.current.fw = nil
+		x.current.pw = nil
+	}()
+
 	if err := x.current.pw.WriteStop(); err != nil {
 		// Logging at here because the error mey not be handled by defer call.
 		logger.WithError(err).WithField("dumper", x).Error("Fail to WriteStop for IndexRecord")

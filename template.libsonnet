@@ -490,6 +490,7 @@
               InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat',
               Columns: [
                 { Name: 'tag', Type: 'string' },
+                { Name: 'timestamp', Type: 'bigint' },
                 { Name: 'field', Type: 'string' },
                 { Name: 'term', Type: 'string' },
                 { Name: 'object_id', Type: 'bigint' },

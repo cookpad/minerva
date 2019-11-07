@@ -45,10 +45,10 @@ func wrapUserError(err error, code int, msg string) apiError {
 	}
 }
 
-func newUserError(msg string, code int) apiError {
+func newUserErrorf(code int, msg string, args ...interface{}) apiError {
 	return &userError{
 		baseError: baseError{
-			Msg:  msg,
+			Msg:  fmt.Sprintf(msg, args...),
 			Code: code,
 		},
 	}

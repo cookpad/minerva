@@ -37,8 +37,9 @@ func handler(args arguments) (*events.APIGatewayProxyResponse, apiError) {
 
 	reqHandler, ok := apiRoute[reqEntry]
 	if !ok {
-		return nil, nil
+		return nil, newUserErrorf(404, "No matched route for %v", reqHandler)
 	}
+	logger.WithField("matchedEntry", reqHandler).Info("Route matched")
 
 	return reqHandler(args)
 }

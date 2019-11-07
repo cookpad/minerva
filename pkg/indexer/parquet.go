@@ -5,11 +5,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	// About parquet format: https://parquet.apache.org/documentation/latest/
-	parquetRowGroupSize = 128 * 1024 * 1024 //128M
-)
-
 type indexDumpers map[string]*indexDumper
 type messageDumpers map[string]*messageDumper
 
