@@ -228,10 +228,6 @@
               LOG_LEVEL: 'DEBUG',
             },
           },
-          DeadLetterQueue: {
-            Type: 'SQS',
-            TargetArn: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
-          },
           Events: {
             IndexerQueue: {
               Type: 'SQS',
@@ -449,6 +445,10 @@
       MergeQueue: {
         Type: 'AWS::SQS::Queue',
         Properties: {
+          RedrivePolicy: {
+            deadLetterTargetArn: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
+            maxReceiveCount: 5,
+          },
           VisibilityTimeout: 300,
         },
       },
