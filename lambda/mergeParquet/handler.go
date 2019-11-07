@@ -206,9 +206,8 @@ func mergeParquet(args arguments) error {
 			logger.Warn("No available merged file")
 			return nil
 		}
-
-		defer os.Remove(*mergedFile)
 	}
+	defer os.Remove(*mergedFile)
 
 	if err := internal.UploadFileToS3(*mergedFile, args.Queue.DstObject.Region, args.Queue.DstObject.Bucket, args.Queue.DstObject.Key); err != nil {
 		return err
