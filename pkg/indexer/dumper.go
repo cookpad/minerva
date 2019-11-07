@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
@@ -47,7 +48,7 @@ const (
 
 // DumperParquetSizeLimit specifies maximum parquet file size.
 // When hitting the size, refresh (close & open another file).
-var DumperParquetSizeLimit = 256 * 1000 * 1000 // 256MB
+var DumperParquetSizeLimit = 128 * 1000 * 1000 // 128MB
 
 const (
 	// About parquet format: https://parquet.apache.org/documentation/latest/
@@ -109,6 +110,8 @@ func (x *baseDumper) refresh(dataSize int) error {
 		if err := x.Close(); err != nil {
 			return err
 		}
+
+		runtime.GC()
 
 		if err := x.open(); err != nil {
 			return err

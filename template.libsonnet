@@ -424,6 +424,10 @@
         Type: 'AWS::SQS::Queue',
         Properties: {
           VisibilityTimeout: 600,
+          RedrivePolicy: {
+            deadLetterTargetArn: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
+            maxReceiveCount: 5,
+          },
         },
       },
       IndexerQueuePolicy: {
@@ -445,10 +449,6 @@
       MergeQueue: {
         Type: 'AWS::SQS::Queue',
         Properties: {
-          RedrivePolicy: {
-            deadLetterTargetArn: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
-            maxReceiveCount: 5,
-          },
           VisibilityTimeout: 300,
         },
       },
