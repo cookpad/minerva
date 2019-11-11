@@ -194,7 +194,7 @@ func TestHandlerSplitObject(t *testing.T) {
 
 	err = main.ListParquet(args)
 	require.NoError(t, err)
-	assert.Equal(t, 2, len(dummySQS.sentInput))
+	assert.Equal(t, 3, len(dummySQS.sentInput))
 
 	dummyS3.contentSize = []int64{
 		20 * 1000 * 1000,
@@ -210,7 +210,7 @@ func TestHandlerSplitObject(t *testing.T) {
 	dummySQS.sentInput = []sqs.SendMessageInput{}
 	err = main.ListParquet(args)
 	require.NoError(t, err)
-	assert.Equal(t, 3, len(dummySQS.sentInput))
+	assert.Equal(t, 4, len(dummySQS.sentInput))
 }
 
 type dummyS3ClientMsgSizeTest struct {

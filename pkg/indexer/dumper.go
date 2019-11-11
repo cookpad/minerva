@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"compress/gzip"
+	"encoding/csv"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,14 +11,10 @@ import (
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/xitongsys/parquet-go-source/local"
-	"github.com/xitongsys/parquet-go/parquet"
-	"github.com/xitongsys/parquet-go/source"
-	"github.com/xitongsys/parquet-go/writer"
 )
 
 type dumper interface {
-	Files() []*parquetFile
+	Files() []*csvFile
 	Dump(q *logQueue, objID int64) error
 	Close() error
 	Delete() error
@@ -26,19 +24,20 @@ type dumper interface {
 
 // baseDumper
 type baseDumper struct {
-	files    []*parquetFile
-	current  *parquetFile
+	files    []*csvFile
+	current  *csvFile
 	baseDst  internal.ParquetLocation
 	obj      interface{}
 	dataSize int
 }
 
-type parquetFile struct {
+type csvFile struct {
 	filePath string
 	dst      internal.ParquetLocation
 	dataSize int
-	pw       *writer.ParquetWriter
-	fw       source.ParquetFile
+	fw       *os.File
+	gw       *gzip.Writer
+	cw       *csv.Writer
 }
 
 const (
@@ -55,7 +54,7 @@ const (
 	parquetRowGroupSize = 16 * 1024 * 1024 //16M
 )
 
-func (x *baseDumper) Files() []*parquetFile              { return x.files }
+func (x *baseDumper) Files() []*csvFile                  { return x.files }
 func (x *baseDumper) Schema() internal.ParquetSchemaName { return x.baseDst.Schema }
 
 func (x *baseDumper) init(v interface{}, dst internal.ParquetLocation) error {
@@ -65,15 +64,15 @@ func (x *baseDumper) init(v interface{}, dst internal.ParquetLocation) error {
 }
 
 func (x *baseDumper) open() error {
-	fd, err := ioutil.TempFile("", "*.parquet")
+	fd, err := ioutil.TempFile("", "*.csv.gz")
 	if err != nil {
 		return errors.Wrap(err, "Fail to create a temp parquet file")
 	}
-	fd.Close()
 	filePath := fd.Name()
 
-	x.current = &parquetFile{
+	x.current = &csvFile{
 		filePath: filePath,
+		fw:       fd,
 		dst:      x.baseDst,
 	}
 	if len(x.files) > 0 {
@@ -86,22 +85,11 @@ func (x *baseDumper) open() error {
 		"dst":  x.current.dst,
 	}).Debug("Open dumper")
 
-	fw, err := local.NewLocalFileWriter(filePath)
-	if err != nil {
-		return errors.Wrap(err, "Fail to create a parquet file")
-	}
+	gw := gzip.NewWriter(fd)
 
-	x.current.fw = fw
+	x.current.gw = gw
 
-	pw, err := writer.NewParquetWriter(fw, x.obj, 4)
-	if err != nil {
-		return errors.Wrap(err, "Fail to create parquet writer")
-	}
-
-	pw.RowGroupSize = parquetRowGroupSize
-	pw.CompressionType = parquet.CompressionCodec_SNAPPY
-
-	x.current.pw = pw
+	x.current.cw = csv.NewWriter(gw)
 	return nil
 }
 
@@ -129,16 +117,12 @@ func (x *baseDumper) Close() error {
 		"dataSize":    x.dataSize,
 	}).Debug("Closing dumper")
 
-	defer func() {
-		x.current.fw.Close()
-		x.current.fw = nil
-		x.current.pw = nil
-	}()
-
-	if err := x.current.pw.WriteStop(); err != nil {
-		// Logging at here because the error mey not be handled by defer call.
-		logger.WithError(err).WithField("dumper", x).Error("Fail to WriteStop for IndexRecord")
-		return errors.Wrap(err, "Fail to WriteStop for IndexRecord")
+	x.current.cw.Flush()
+	if err := x.current.gw.Close(); err != nil {
+		return errors.Wrapf(err, "Fail to close gzip: %v", *x)
+	}
+	if err := x.current.fw.Close(); err != nil {
+		return errors.Wrapf(err, "Fail to close file: %v", *x)
 	}
 
 	return nil
@@ -198,20 +182,19 @@ func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 	}
 
 	for it := range terms {
-		rec := internal.IndexRecord{
-			Tag:       q.Tag,
-			Timestamp: q.Timestamp.Unix(),
-			Field:     it.field,
-			Term:      it.term,
-			ObjectID:  objID,
-			Seq:       int32(q.Seq),
-		}
-
 		if err := x.refresh(len(q.Tag) + len(it.field) + len(it.term)); err != nil {
 			return err
 		}
 
-		if err := x.current.pw.Write(rec); err != nil {
+		row := []string{
+			q.Tag,
+			fmt.Sprintf("%d", objID),
+			fmt.Sprintf("%d", q.Seq),
+			it.field,
+			it.term,
+		}
+
+		if err := x.current.cw.Write(row); err != nil {
 			return errors.Wrap(err, "Index write error")
 		}
 	}
@@ -240,19 +223,19 @@ func newMessageDumper(dst internal.ParquetLocation) (dumper, error) {
 }
 
 func (x *messageDumper) Dump(q *logQueue, objID int64) error {
-	rec := internal.MessageRecord{
-		Timestamp: q.Timestamp.Unix(),
-		Message:   q.Message,
-		ObjectID:  objID,
-		Seq:       q.Seq,
-	}
-
 	if err := x.refresh(len(q.Tag) + len(q.Message)); err != nil {
 		return err
 	}
 
-	if err := x.current.pw.Write(rec); err != nil {
-		return errors.Wrap(err, "Index write error")
+	row := []string{
+		fmt.Sprintf("%d", q.Timestamp.Unix()),
+		fmt.Sprintf("%d", objID),
+		fmt.Sprintf("%d", q.Seq),
+		q.Message,
+	}
+
+	if err := x.current.cw.Write(row); err != nil {
+		return errors.Wrap(err, "Message write error")
 	}
 
 	return nil

@@ -53,5 +53,5 @@ func testLoadMessageChannel(loc s3Loc, input chan *LogQueue) chan *logQueue {
 	return ch
 }
 
-func (x *parquetFile) FilePath() string              { return x.filePath }
-func (x *parquetFile) Dst() internal.ParquetLocation { return x.dst }
+func (x *csvFile) FilePath() string              { return x.filePath }
+func (x *csvFile) Dst() internal.ParquetLocation { return x.dst }

@@ -1,6 +1,8 @@
 package indexer_test
 
 import (
+	"compress/gzip"
+	"encoding/csv"
 	"io"
 	"os"
 	"testing"
@@ -12,8 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xitongsys/parquet-go-source/local"
-	"github.com/xitongsys/parquet-go/reader"
 )
 
 type dummyMeta struct{}
@@ -36,7 +36,7 @@ func (x *dummyS3Client) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput
 	switch {
 	case *input.Bucket == "src-bucket" && *input.Key == "k1.json":
 		return &s3.GetObjectOutput{Body: x.origin}, nil
-	case *input.Bucket == "dst-bucket" && *input.Key == "dst-prefix/indices/dt=2019-09-18/tg=aws.cloudtrail/unmerged/23/src-bucket/k1.json.parquet":
+	case *input.Bucket == "dst-bucket" && *input.Key == "dst-prefix/indices/dt=2019-09-18/tg=aws.cloudtrail/unmerged/23/src-bucket/k1.json.csv.gz":
 		return &s3.GetObjectOutput{Body: x.origin}, nil
 	}
 	return nil, nil
@@ -91,53 +91,44 @@ func TestCreateParquet(t *testing.T) {
 	dst := idxFiles[0].Dst()
 	dst.Bucket = "dst-bucket"
 	dst.Prefix = "dst-prefix/"
-	assert.Equal(t, "dst-prefix/indices/tg=mylog/dt=2019-09-18/unmerged/23/src-bucket/k1.json.parquet", dst.S3Key())
+	assert.Equal(t, "dst-prefix/indices/tg=mylog/dt=2019-09-18/unmerged/23/src-bucket/k1.json.csv.gz", dst.S3Key())
 	assert.Equal(t, "s3://dst-bucket/dst-prefix/indices/tg=mylog/dt=2019-09-18/", dst.PartitionLocation())
 
 	///read
 	idxFileList := idxDumper.Files()
 	assert.Equal(t, 1, len(idxFileList))
-	fr, err := local.NewLocalFileReader(idxFileList[0].FilePath())
+	fr1, err := os.Open(idxFileList[0].FilePath())
 	require.NoError(t, err)
+	defer fr1.Close()
 
-	pr, err := reader.NewParquetReader(fr, new(internal.IndexRecord), 4)
+	gr1, err := gzip.NewReader(fr1)
 	require.NoError(t, err)
+	defer gr1.Close()
+	cr1 := csv.NewReader(gr1)
+	rows, err := cr1.ReadAll()
+	require.NotEqual(t, 0, len(rows))
 
-	num := int(pr.GetNumRows())
-	require.NotEqual(t, 0, num)
-	read := false
-
-	rec := make([]internal.IndexRecord, 1) //read 1 rows
-	err = pr.Read(&rec)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rec[0].Field)
-	assert.Equal(t, "mylog", rec[0].Tag)
-	assert.Equal(t, int64(5), rec[0].ObjectID)
-	read = true
-
-	assert.True(t, read)
-	pr.ReadStop()
-	fr.Close()
+	assert.Equal(t, 5, len(rows[0]))
+	assert.Equal(t, "mylog", rows[0][0])
+	assert.Equal(t, "5", rows[0][1])
 
 	///read message records
 	msgFileList := msgDumper.Files()
 	assert.Equal(t, 1, len(msgFileList))
-	fr, err = local.NewLocalFileReader(msgFileList[0].FilePath())
+	fr2, err := os.Open(msgFileList[0].FilePath())
 	require.NoError(t, err)
+	defer fr2.Close()
 
-	pr, err = reader.NewParquetReader(fr, new(internal.MessageRecord), 4)
+	gr2, err := gzip.NewReader(fr2)
 	require.NoError(t, err)
+	defer gr2.Close()
+	cr2 := csv.NewReader(gr2)
+	rows, err = cr2.ReadAll()
+	require.NotEqual(t, 0, len(rows))
 
-	num = int(pr.GetNumRows())
-	assert.NotEqual(t, 0, num)
-	mrec := make([]internal.MessageRecord, 1) //read 1 rows
-	err = pr.Read(&mrec)
-	require.NoError(t, err)
-	assert.NotEmpty(t, mrec[0].Message)
-	assert.Equal(t, int64(5), mrec[0].ObjectID)
-
-	pr.ReadStop()
-	fr.Close()
+	assert.NotEqual(t, 0, len(rows))
+	assert.Equal(t, 4, len(rows[0]))
+	assert.Equal(t, "test message 1", rows[0][3])
 
 	for _, d := range dumpers {
 		require.NoError(t, d.Delete())
