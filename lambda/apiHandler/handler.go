@@ -23,10 +23,10 @@ type requestEntry struct {
 }
 
 var apiRoute = map[requestEntry]requestHandler{
-	requestEntry{"POST", "/v1/search"}:                     execSearch,
-	requestEntry{"GET", "/v1/search/{search_id}/result"}:   getSearchResult,
-	requestEntry{"GET", "/v1/search/{search_id}/timeline"}: getSearchTimeline,
-	requestEntry{"DELETE", "/v1/search/{search_id}"}:       cancelSearch,
+	requestEntry{"POST", "/api/v1/search"}:                     execSearch,
+	requestEntry{"GET", "/api/v1/search/{search_id}/result"}:   getSearchResult,
+	requestEntry{"GET", "/api/v1/search/{search_id}/timeline"}: getSearchTimeline,
+	requestEntry{"DELETE", "/api/v1/search/{search_id}"}:       cancelSearch,
 }
 
 func handler(args arguments) (*events.APIGatewayProxyResponse, apiError) {

@@ -563,24 +563,27 @@
               Type: 'Api',
               Properties: {
                 Method: 'post',
-                Path: '/v1/search',
+                Path: '/api/v1/search',
                 RestApiId: { Ref: 'ApiGW' },
+                Auth: { ApiKeyRequired: true },
               },
             },
             GetSearchResult: {
               Type: 'Api',
               Properties: {
                 Method: 'get',
-                Path: '/v1/search/{search_id}/result',
+                Path: '/api/v1/search/{search_id}/result',
                 RestApiId: { Ref: 'ApiGW' },
+                Auth: { ApiKeyRequired: true },
               },
             },
             GetSearchTimeline: {
               Type: 'Api',
               Properties: {
                 Method: 'get',
-                Path: '/v1/search/{search_id}/timeline',
+                Path: '/api/v1/search/{search_id}/timeline',
                 RestApiId: { Ref: 'ApiGW' },
+                Auth: { ApiKeyRequired: true },
               },
             },
           },
