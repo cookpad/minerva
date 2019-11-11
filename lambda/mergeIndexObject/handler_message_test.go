@@ -10,7 +10,7 @@ import (
 	"github.com/m-mizutani/minerva/internal"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	main "github.com/m-mizutani/minerva/lambda/mergeParquet"
+	main "github.com/m-mizutani/minerva/lambda/mergeIndexObject"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xitongsys/parquet-go-source/local"

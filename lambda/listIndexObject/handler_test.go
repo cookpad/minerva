@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/google/uuid"
-	main "github.com/m-mizutani/minerva/lambda/listParquet"
+	main "github.com/m-mizutani/minerva/lambda/listIndexObject"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
