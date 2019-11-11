@@ -240,42 +240,12 @@
         } + IndexerProperty,
       },
 
-      MregeParquet: {
-        Type: 'AWS::Serverless::Function',
-        Properties: {
-          CodeUri: 'build',
-          Handler: 'mergeParquet',
-          Runtime: 'go1.x',
-          Timeout: 450,
-          MemorySize: 3008,
-          Role: LambdaRole,
-          ReservedConcurrentExecutions: 20,
-          Environment: {
-            Variables: {
-              LOG_LEVEL: 'DEBUG',
-            },
-          },
-          DeadLetterQueue: {
-            Type: 'SQS',
-            TargetArn: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
-          },
-          Events: {
-            MergeJob: {
-              Type: 'SQS',
-              Properties: {
-                Queue: { 'Fn::GetAtt': 'MergeQueue.Arn' },
-                BatchSize: 1,
-              },
-            },
-          },
-        },
-      },
 
-      ListParquet: {
+      listIndexObject: {
         Type: 'AWS::Serverless::Function',
         Properties: {
           CodeUri: 'build',
-          Handler: 'listParquet',
+          Handler: 'listIndexObject',
           Runtime: 'go1.x',
           Timeout: 300,
           MemorySize: 1024,
@@ -302,11 +272,42 @@
         },
       },
 
-      CreatePartition: {
+      mergeIndexObject: {
         Type: 'AWS::Serverless::Function',
         Properties: {
           CodeUri: 'build',
-          Handler: 'createPartition',
+          Handler: 'mergeIndexObject',
+          Runtime: 'go1.x',
+          Timeout: 450,
+          MemorySize: 3008,
+          Role: LambdaRole,
+          ReservedConcurrentExecutions: 20,
+          Environment: {
+            Variables: {
+              LOG_LEVEL: 'DEBUG',
+            },
+          },
+          DeadLetterQueue: {
+            Type: 'SQS',
+            TargetArn: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
+          },
+          Events: {
+            MergeJob: {
+              Type: 'SQS',
+              Properties: {
+                Queue: { 'Fn::GetAtt': 'MergeQueue.Arn' },
+                BatchSize: 1,
+              },
+            },
+          },
+        },
+      },
+
+      makePartition: {
+        Type: 'AWS::Serverless::Function',
+        Properties: {
+          CodeUri: 'build',
+          Handler: 'makePartition',
           Runtime: 'go1.x',
           Timeout: 30,
           MemorySize: 128,
@@ -484,20 +485,17 @@
             TableType: 'EXTERNAL_TABLE',
             PartitionKeys: [
               { Name: 'dt', Type: 'string' },
-              { Name: 'tg', Type: 'string' },
             ],
             StorageDescriptor: {
-              InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat',
               Columns: [
                 { Name: 'tag', Type: 'string' },
-                { Name: 'timestamp', Type: 'bigint' },
-                { Name: 'field', Type: 'string' },
-                { Name: 'term', Type: 'string' },
                 { Name: 'object_id', Type: 'bigint' },
                 { Name: 'seq', Type: 'int' },
+                { Name: 'field', Type: 'string' },
+                { Name: 'term', Type: 'string' },
               ],
               SerdeInfo: {
-                SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe',
+                SerializationLibrary: 'org.apache.hadoop.hive.serde2.OpenCSVSerde',
               },
               Location: 's3://' + DataS3Bucket + '/' + DataS3Prefix + 'indices/',
             },
@@ -516,10 +514,8 @@
             TableType: 'EXTERNAL_TABLE',
             PartitionKeys: [
               { Name: 'dt', Type: 'string' },
-              { Name: 'tg', Type: 'string' },
             ],
             StorageDescriptor: {
-              InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat',
               Columns: [
                 { Name: 'timestamp', Type: 'bigint' },
                 { Name: 'object_id', Type: 'bigint' },
@@ -527,7 +523,7 @@
                 { Name: 'message', Type: 'string' },
               ],
               SerdeInfo: {
-                SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe',
+                SerializationLibrary: 'org.apache.hadoop.hive.serde2.OpenCSVSerde',
               },
               Location: 's3://' + DataS3Bucket + '/' + DataS3Prefix + 'messages/',
             },
