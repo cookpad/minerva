@@ -213,7 +213,7 @@
         Properties: {
           Runtime: 'go1.x',
           Timeout: 600,
-          MemorySize: 3008,
+          MemorySize: 2048,
           ReservedConcurrentExecutions: ConcurrentExecution,
           Role: LambdaRole,
           Environment: {
@@ -279,7 +279,7 @@
           Handler: 'mergeIndexObject',
           Runtime: 'go1.x',
           Timeout: 450,
-          MemorySize: 3008,
+          MemorySize: 2048,
           Role: LambdaRole,
           ReservedConcurrentExecutions: 20,
           Environment: {
@@ -451,6 +451,10 @@
         Type: 'AWS::SQS::Queue',
         Properties: {
           VisibilityTimeout: 450,
+          RedrivePolicy: {
+            deadLetterTargetArn: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
+            maxReceiveCount: 5,
+          },
         },
       },
       PartitionQueue: {

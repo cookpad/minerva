@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type arguments struct {
@@ -27,6 +28,7 @@ func mergeCSV(args arguments) error {
 		defer pw.Close()
 		defer gw.Close()
 
+	MainLoop:
 		for _, src := range args.Queue.SrcObjects {
 			ssn := session.New(&aws.Config{Region: aws.String(src.Region)})
 			srcClient := s3.New(ssn)
@@ -38,7 +40,20 @@ func mergeCSV(args arguments) error {
 
 			resp, err := srcClient.GetObject(input)
 			if err != nil {
-				logger.WithError(err).WithField("resp", resp).Fatal("Fail to download S3 object")
+				if aerr, ok := err.(awserr.Error); ok {
+					switch aerr.Code() {
+					case s3.ErrCodeNoSuchKey:
+						logger.WithField("src", src).Warn("The object has been deleted (no such key)")
+						continue MainLoop
+					default:
+						logger.WithError(err).WithFields(logrus.Fields{
+							"resp": resp,
+							"src":  src,
+						}).Fatal("Fail to download S3 object (AWS error)")
+					}
+				} else {
+					logger.WithError(err).WithField("resp", resp).Fatal("Fail to download S3 object (http error)")
+				}
 			}
 
 			defer resp.Body.Close()
