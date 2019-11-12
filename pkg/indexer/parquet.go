@@ -34,7 +34,6 @@ func newPqLoc(q *logQueue) (msgDst, idxDst internal.ParquetLocation) {
 	dst := internal.ParquetLocation{
 		MergeStat: internal.ParquetMergeStatUnmerged,
 		Timestamp: q.Timestamp,
-		Tag:       q.Tag,
 		SrcBucket: q.Src.Bucket,
 		SrcKey:    q.Src.Key(),
 	}

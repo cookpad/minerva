@@ -489,7 +489,6 @@
             TableType: 'EXTERNAL_TABLE',
             PartitionKeys: [
               { Name: 'dt', Type: 'string' },
-              { Name: 'tg', Type: 'string' },
             ],
             StorageDescriptor: {
               InputFormat: 'org.apache.hadoop.mapred.TextInputFormat',
@@ -526,7 +525,6 @@
             TableType: 'EXTERNAL_TABLE',
             PartitionKeys: [
               { Name: 'dt', Type: 'string' },
-              { Name: 'tg', Type: 'string' },
             ],
             StorageDescriptor: {
               InputFormat: 'org.apache.hadoop.mapred.TextInputFormat',

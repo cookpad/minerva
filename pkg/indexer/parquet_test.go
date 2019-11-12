@@ -36,7 +36,7 @@ func (x *dummyS3Client) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput
 	switch {
 	case *input.Bucket == "src-bucket" && *input.Key == "k1.json":
 		return &s3.GetObjectOutput{Body: x.origin}, nil
-	case *input.Bucket == "dst-bucket" && *input.Key == "dst-prefix/indices/dt=2019-09-18/tg=aws.cloudtrail/unmerged/23/src-bucket/k1.json.csv.gz":
+	case *input.Bucket == "dst-bucket" && *input.Key == "dst-prefix/indices/dt=2019-09-18-23/unmerged/23/src-bucket/k1.json.csv.gz":
 		return &s3.GetObjectOutput{Body: x.origin}, nil
 	}
 	return nil, nil
@@ -91,8 +91,8 @@ func TestCreateParquet(t *testing.T) {
 	dst := idxFiles[0].Dst()
 	dst.Bucket = "dst-bucket"
 	dst.Prefix = "dst-prefix/"
-	assert.Equal(t, "dst-prefix/indices/tg=mylog/dt=2019-09-18/unmerged/23/src-bucket/k1.json.csv.gz", dst.S3Key())
-	assert.Equal(t, "s3://dst-bucket/dst-prefix/indices/tg=mylog/dt=2019-09-18/", dst.PartitionLocation())
+	assert.Equal(t, "dst-prefix/indices/dt=2019-09-18-23/unmerged/src-bucket/k1.json.csv.gz", dst.S3Key())
+	assert.Equal(t, "s3://dst-bucket/dst-prefix/indices/dt=2019-09-18-23/", dst.PartitionLocation())
 
 	///read
 	idxFileList := idxDumper.Files()

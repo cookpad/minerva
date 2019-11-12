@@ -79,7 +79,6 @@ type ParquetLocation struct {
 	MergeStat    ParquetMergeStat
 	Schema       ParquetSchemaName
 	Timestamp    time.Time
-	Tag          string
 	SrcBucket    string
 	SrcKey       string
 	FileNameSlat string
@@ -91,7 +90,6 @@ func (x ParquetLocation) S3Key() string {
 		x.schemaName(),
 		x.Partition(),
 		string(x.MergeStat),
-		x.Timestamp.Format("15"),
 	}, "/")
 
 	if x.SrcBucket != "" {
@@ -167,31 +165,21 @@ func (x ParquetLocation) PartitionLocation() string {
 func (x ParquetLocation) PartitionKeys() map[string]string {
 	return map[string]string{
 		"dt": x.DtKey(),
-		"tg": x.TgKey(),
 	}
 }
 
 // DtKey returns date key for "dt="
 func (x ParquetLocation) DtKey() string {
-	return x.Timestamp.Format("2006-01-02")
-}
-
-// TgKey returns tag key for "tg="
-func (x ParquetLocation) TgKey() string {
-	return x.Tag
+	return x.Timestamp.Format("2006-01-02-15")
 }
 
 func (x ParquetLocation) partitionDate() string {
 	return "dt=" + x.DtKey()
 }
 
-func (x ParquetLocation) partitionTag() string {
-	return "tg=" + x.TgKey()
-}
-
 // Partition returns a partition related part of S3 key.
 func (x ParquetLocation) Partition() string {
-	return x.partitionTag() + "/" + x.partitionDate()
+	return x.partitionDate()
 }
 
 // ParseS3Key parses S3 key to generate a new ParquetLocation
@@ -199,7 +187,7 @@ func ParseS3Key(key, prefix string) (*ParquetLocation, error) {
 	loc := ParquetLocation{
 		Prefix: prefix,
 	}
-	// s3://{bucket}/{prefix}{schema}/{partition}/{merged,unmerged}/{hour}/{srcBucket}/{srcKey}.csv.gz
+	// s3://{bucket}/{prefix}{schema}/{partition}/{merged,unmerged}/{srcBucket}/{srcKey}.csv.gz
 
 	if !strings.HasPrefix(key, prefix) {
 		return nil, fmt.Errorf("Prefix is not matched: %s %s", prefix, key)
@@ -219,31 +207,23 @@ func ParseS3Key(key, prefix string) (*ParquetLocation, error) {
 		}
 	}
 
-	// tg key
-	var timestamp string
+	// dt key
 	if len(arr) > 1 && arr[1] != "" {
 		v := arr[1]
-		if !strings.HasPrefix(v, "tg=") {
-			return nil, fmt.Errorf("Invalid partition key (tg): %v", v)
-		}
-
-		loc.Tag = v[len("tg="):]
-
-	}
-
-	// dt key
-	if len(arr) > 2 && arr[2] != "" {
-		v := arr[2]
 		if !strings.HasPrefix(v, "dt=") {
 			return nil, fmt.Errorf("Invalid partition key (dt): %v", v)
 		}
 
-		timestamp = v[len("dt="):]
+		ts, err := time.Parse("2006-01-02-15", v[len("dt="):])
+		if err != nil {
+			return nil, errors.Wrapf(err, "Fail to parse dt key: %v", v)
+		}
+		loc.Timestamp = ts
 	}
 
 	// merge status
-	if len(arr) > 3 && arr[3] != "" {
-		v := arr[3]
+	if len(arr) > 2 && arr[2] != "" {
+		v := arr[2]
 		switch v {
 		case s3DirNameMerged:
 			loc.MergeStat = ParquetMergeStatMerged
@@ -254,40 +234,15 @@ func ParseS3Key(key, prefix string) (*ParquetLocation, error) {
 		}
 	}
 
-	// hour
-	if timestamp != "" {
-		if len(arr) > 4 && arr[4] != "" {
-			timestamp += " " + arr[4]
-		} else {
-			timestamp += " 00"
-		}
-
-		ts, err := time.Parse("2006-01-02 15", timestamp)
-		if err != nil {
-			return nil, errors.Wrap(err, "Fail to parse timestamp (dt + hour)")
-		}
-		loc.Timestamp = ts
-	}
-
 	// src bucket
-	if len(arr) > 5 {
-		loc.SrcBucket = arr[5]
+	if len(arr) > 3 {
+		loc.SrcBucket = arr[3]
 	}
 
 	// src key
-	if len(arr) > 6 {
-		loc.SrcKey = strings.Join(arr[6:], "/")
+	if len(arr) > 4 {
+		loc.SrcKey = strings.Join(arr[4:], "/")
 	}
 
 	return &loc, nil
-}
-
-// ToDtKey creates string as partition key
-func ToDtKey(ts time.Time) string {
-	return "dt=" + ts.Format("2006-01-02")
-}
-
-// ToTgKey creates string as partition key
-func ToTgKey(tag string) string {
-	return "tg=" + tag
 }

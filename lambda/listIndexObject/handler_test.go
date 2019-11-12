@@ -42,8 +42,8 @@ func (x *dummyS3Client) ListObjectsV2(input *s3.ListObjectsV2Input) (*s3.ListObj
 		if strings.HasPrefix(aws.StringValue(input.Prefix), "test-prefix/indices/") {
 			output := &s3.ListObjectsV2Output{
 				CommonPrefixes: []*s3.CommonPrefix{
-					{Prefix: aws.String("test-prefix/indices/tg=mylog1/dt=2019-10-12")},
-					{Prefix: aws.String("test-prefix/indices/tg=mylog2/dt=2019-10-12")},
+					{Prefix: aws.String("test-prefix/indices/dt=2019-10-12-17")},
+					{Prefix: aws.String("test-prefix/indices/dt=2019-10-12-17")},
 				},
 			}
 
@@ -53,20 +53,24 @@ func (x *dummyS3Client) ListObjectsV2(input *s3.ListObjectsV2Input) (*s3.ListObj
 		}
 	} else {
 		switch aws.StringValue(input.Prefix) {
-		case "test-prefix/indices/tg=mylog1/dt=2019-10-12/unmerged/":
+		case "test-prefix/indices/dt=2019-10-12-17/unmerged/":
 			return &s3.ListObjectsV2Output{
 				Contents: []*s3.Object{
-					{Key: aws.String("test-prefix/indices/tg=mylog1/dt=2019-10-12/b1/obj1.parquet"), Size: aws.Int64(12)},
-					{Key: aws.String("test-prefix/indices/tg=mylog1/dt=2019-10-12/b1/obj2.parquet"), Size: aws.Int64(32)},
+					{Key: aws.String("test-prefix/indices/dt=2019-10-12-17/b1/obj1.parquet"), Size: aws.Int64(12)},
+					{Key: aws.String("test-prefix/indices/dt=2019-10-12-17/b1/obj2.parquet"), Size: aws.Int64(32)},
+					{Key: aws.String("test-prefix/indices/dt=2019-10-12-17/b2/objx.parquet"), Size: aws.Int64(12)},
+					{Key: aws.String("test-prefix/indices/dt=2019-10-12-17/b2/objy.parquet"), Size: aws.Int64(32)},
 				},
 				IsTruncated: aws.Bool(false),
 			}, nil
 
-		case "test-prefix/indices/tg=mylog2/dt=2019-10-12/unmerged/":
+		case "test-prefix/messages/dt=2019-10-12-17/unmerged/":
 			return &s3.ListObjectsV2Output{
 				Contents: []*s3.Object{
-					{Key: aws.String("test-prefix/indices/tg=mylog2/dt=2019-10-12/b2/objx.parquet"), Size: aws.Int64(12)},
-					{Key: aws.String("test-prefix/indices/tg=mylog2/dt=2019-10-12/b2/objy.parquet"), Size: aws.Int64(32)},
+					{Key: aws.String("test-prefix/messages/dt=2019-10-12-17/b1/obj1.parquet"), Size: aws.Int64(12)},
+					{Key: aws.String("test-prefix/messages/dt=2019-10-12-17/b1/obj2.parquet"), Size: aws.Int64(32)},
+					{Key: aws.String("test-prefix/messages/dt=2019-10-12-17/b2/objx.parquet"), Size: aws.Int64(12)},
+					{Key: aws.String("test-prefix/messages/dt=2019-10-12-17/b2/objy.parquet"), Size: aws.Int64(32)},
 				},
 				IsTruncated: aws.Bool(false),
 			}, nil
@@ -95,7 +99,7 @@ func TestHandlerBasic(t *testing.T) {
 	defer internal.TestFixNewSqsClient()
 
 	args := main.NewArgument()
-	ts, err := time.Parse("2006-01-02T15:04:05", "2019-10-12T10:00:00")
+	ts, err := time.Parse("2006-01-02T15:04:05", "2019-10-12T17:00:00")
 	require.NoError(t, err)
 
 	args.BaseTime = ts
@@ -106,28 +110,24 @@ func TestHandlerBasic(t *testing.T) {
 	err = main.ListParquet(args)
 	require.NoError(t, err)
 
-	require.Equal(t, 4, len(dummyS3.sentInput))
+	require.Equal(t, 2, len(dummyS3.sentInput))
 
 	assert.Equal(t, "test-bucket", *dummyS3.sentInput[0].Bucket)
-	assert.Equal(t, "test-prefix/indices/", *dummyS3.sentInput[0].Prefix)
-	assert.Equal(t, "/", *dummyS3.sentInput[0].Delimiter)
-
-	assert.Equal(t, "test-bucket", *dummyS3.sentInput[1].Bucket)
-	assert.Equal(t, "test-prefix/indices/tg=mylog1/dt=2019-10-12/unmerged/", *dummyS3.sentInput[1].Prefix)
-	assert.Nil(t, dummyS3.sentInput[1].Delimiter)
+	assert.Equal(t, "test-prefix/indices/dt=2019-10-12-17/unmerged/", *dummyS3.sentInput[0].Prefix)
+	assert.Nil(t, dummyS3.sentInput[0].Delimiter)
 
 	require.Equal(t, 2, len(dummySQS.sentInput))
 	var q internal.MergeQueue
-	err = json.Unmarshal([]byte(*dummySQS.sentInput[0].MessageBody), &q)
+	err = json.Unmarshal([]byte(*dummySQS.sentInput[1].MessageBody), &q)
 	require.NoError(t, err)
-	assert.Equal(t, internal.ParquetSchemaIndex, q.Schema)
+	assert.Equal(t, internal.ParquetSchemaMessage, q.Schema)
 	assert.Equal(t, "test-bucket", q.DstObject.Bucket)
 	assert.Equal(t, "ap-northeast-1", q.DstObject.Region)
-	assert.Contains(t, q.DstObject.Key, "test-prefix/indices/tg=mylog1/dt=2019-10-12/merged/")
-	assert.Equal(t, 2, len(q.SrcObjects))
-	assert.Equal(t, "ap-northeast-1", q.SrcObjects[0].Region)
-	assert.Equal(t, "test-bucket", q.SrcObjects[0].Bucket)
-	assert.Equal(t, "test-prefix/indices/tg=mylog1/dt=2019-10-12/b1/obj1.parquet", q.SrcObjects[0].Key)
+	assert.Contains(t, q.DstObject.Key, "test-prefix/messages/dt=2019-10-12-17/merged/")
+	assert.Equal(t, 4, len(q.SrcObjects))
+	assert.Equal(t, "ap-northeast-1", q.SrcObjects[1].Region)
+	assert.Equal(t, "test-bucket", q.SrcObjects[1].Bucket)
+	assert.Equal(t, "test-prefix/messages/dt=2019-10-12-17/b1/obj1.parquet", q.SrcObjects[0].Key)
 }
 
 type dummyS3ClientObjSizeTest struct {
@@ -146,7 +146,7 @@ func (x *dummyS3ClientObjSizeTest) ListObjectsV2(input *s3.ListObjectsV2Input) (
 	if input.Delimiter != nil {
 		output := &s3.ListObjectsV2Output{
 			CommonPrefixes: []*s3.CommonPrefix{
-				{Prefix: aws.String("test-prefix/indices/tg=mylog1/dt=2019-10-12")},
+				{Prefix: aws.String("test-prefix/indices/dt=2019-10-12-17")},
 			},
 		}
 		return output, nil
@@ -154,7 +154,7 @@ func (x *dummyS3ClientObjSizeTest) ListObjectsV2(input *s3.ListObjectsV2Input) (
 		var contents []*s3.Object
 		for _, s := range x.contentSize {
 			contents = append(contents, &s3.Object{
-				Key:  aws.String("test-prefix/indices/tg=mylog1/dt=2019-10-12/b1/" + uuid.New().String() + ".parquet"),
+				Key:  aws.String("test-prefix/indices/dt=2019-10-12-17/b1/" + uuid.New().String() + ".csv.gz"),
 				Size: &s,
 			})
 		}
@@ -185,32 +185,36 @@ func TestHandlerSplitObject(t *testing.T) {
 	args.S3Prefix = "test-prefix/"
 
 	dummyS3.contentSize = []int64{
-		30 * 1000 * 1000,
-		30 * 1000 * 1000,
-		// should split
-		30 * 1000 * 1000,
+		200 * 1000 * 1000,
+		200 * 1000 * 1000,
+		// split
+		200 * 1000 * 1000,
 	}
 	dummySQS.sentInput = []sqs.SendMessageInput{}
 
+	err = main.ListParquet(args)
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(dummySQS.sentInput))
+
+	dummyS3.contentSize = []int64{
+		100 * 1000 * 1000,
+		100 * 1000 * 1000,
+		100 * 1000 * 1000,
+		100 * 1000 * 1000,
+		100 * 1000 * 1000,
+		// should split
+		100 * 1000 * 1000,
+		100 * 1000 * 1000,
+		100 * 1000 * 1000,
+		100 * 1000 * 1000,
+		100 * 1000 * 1000,
+		// should split
+		100 * 1000 * 1000,
+	}
+	dummySQS.sentInput = []sqs.SendMessageInput{}
 	err = main.ListParquet(args)
 	require.NoError(t, err)
 	assert.Equal(t, 3, len(dummySQS.sentInput))
-
-	dummyS3.contentSize = []int64{
-		20 * 1000 * 1000,
-		20 * 1000 * 1000,
-		20 * 1000 * 1000,
-		// should split
-		20 * 1000 * 1000,
-		20 * 1000 * 1000,
-		20 * 1000 * 1000,
-		// should split
-		20 * 1000 * 1000,
-	}
-	dummySQS.sentInput = []sqs.SendMessageInput{}
-	err = main.ListParquet(args)
-	require.NoError(t, err)
-	assert.Equal(t, 4, len(dummySQS.sentInput))
 }
 
 type dummyS3ClientMsgSizeTest struct {
@@ -229,7 +233,7 @@ func (x *dummyS3ClientMsgSizeTest) ListObjectsV2(input *s3.ListObjectsV2Input) (
 	if input.Delimiter != nil {
 		output := &s3.ListObjectsV2Output{
 			CommonPrefixes: []*s3.CommonPrefix{
-				{Prefix: aws.String("test-prefix/indices/tg=mylog1/dt=2019-10-12")},
+				{Prefix: aws.String("test-prefix/indices/dt=2019-10-12-17")},
 			},
 		}
 		return output, nil
@@ -237,7 +241,7 @@ func (x *dummyS3ClientMsgSizeTest) ListObjectsV2(input *s3.ListObjectsV2Input) (
 		var contents []*s3.Object
 		for i := 0; i < x.msgCount; i++ {
 			contents = append(contents, &s3.Object{
-				Key:  aws.String("test-prefix/indices/tg=mylog1/dt=2019-10-12/b1/" + uuid.New().String() + ".parquet"),
+				Key:  aws.String("test-prefix/indices/dt=2019-10-12-17/b1/" + uuid.New().String() + ".csv.vz"),
 				Size: aws.Int64(1),
 			})
 		}

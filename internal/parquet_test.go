@@ -21,7 +21,6 @@ func newGenericParquetLocation() internal.ParquetLocation {
 		MergeStat: internal.ParquetMergeStatUnmerged,
 		Timestamp: ts,
 		Schema:    internal.ParquetSchemaIndex,
-		Tag:       "mylog",
 		SrcBucket: "srcbucket",
 		SrcKey:    "srckey",
 	}
@@ -32,16 +31,16 @@ func newGenericParquetLocation() internal.ParquetLocation {
 func TestParquetLocationS3Key(t *testing.T) {
 	pqLoc := newGenericParquetLocation()
 
-	assert.Equal(t, "indices/tg=mylog/dt=1983-04-20/unmerged/13/srcbucket/srckey.csv.gz", pqLoc.S3Key())
+	assert.Equal(t, "indices/dt=1983-04-20-13/unmerged/srcbucket/srckey.csv.gz", pqLoc.S3Key())
 
 	pqLoc.Prefix = "myprefix/"
-	assert.Equal(t, "myprefix/indices/tg=mylog/dt=1983-04-20/unmerged/13/srcbucket/srckey.csv.gz", pqLoc.S3Key())
+	assert.Equal(t, "myprefix/indices/dt=1983-04-20-13/unmerged/srcbucket/srckey.csv.gz", pqLoc.S3Key())
 
 	pqLoc.Schema = internal.ParquetSchemaMessage
-	assert.Equal(t, "myprefix/messages/tg=mylog/dt=1983-04-20/unmerged/13/srcbucket/srckey.csv.gz", pqLoc.S3Key())
+	assert.Equal(t, "myprefix/messages/dt=1983-04-20-13/unmerged/srcbucket/srckey.csv.gz", pqLoc.S3Key())
 
 	pqLoc.MergeStat = internal.ParquetMergeStatMerged
-	assert.Equal(t, "myprefix/messages/tg=mylog/dt=1983-04-20/merged/13/srcbucket/srckey.csv.gz", pqLoc.S3Key())
+	assert.Equal(t, "myprefix/messages/dt=1983-04-20-13/merged/srcbucket/srckey.csv.gz", pqLoc.S3Key())
 }
 
 func TestParquetLocationTableName(t *testing.T) {
@@ -56,7 +55,7 @@ func TestParquetLocationTableName(t *testing.T) {
 
 func TestParquetLocationPertitionPrefix(t *testing.T) {
 	pqLoc := newGenericParquetLocation()
-	assert.Equal(t, "indices/tg=mylog/dt=1983-04-20", pqLoc.PartitionPrefix())
+	assert.Equal(t, "indices/dt=1983-04-20-13", pqLoc.PartitionPrefix())
 }
 
 func TestParquetLocationPertitionSchemaPrefix(t *testing.T) {
@@ -66,13 +65,13 @@ func TestParquetLocationPertitionSchemaPrefix(t *testing.T) {
 
 func TestParquetLocationPartitionLocation(t *testing.T) {
 	pqLoc := newGenericParquetLocation()
-	assert.Equal(t, "s3://mybucket/indices/tg=mylog/dt=1983-04-20/", pqLoc.PartitionLocation())
+	assert.Equal(t, "s3://mybucket/indices/dt=1983-04-20-13/", pqLoc.PartitionLocation())
 
 	pqLoc.Prefix = "myprefix/"
-	assert.Equal(t, "s3://mybucket/myprefix/indices/tg=mylog/dt=1983-04-20/", pqLoc.PartitionLocation())
+	assert.Equal(t, "s3://mybucket/myprefix/indices/dt=1983-04-20-13/", pqLoc.PartitionLocation())
 
 	pqLoc.Prefix = "myprefix"
-	assert.Equal(t, "s3://mybucket/myprefixindices/tg=mylog/dt=1983-04-20/", pqLoc.PartitionLocation())
+	assert.Equal(t, "s3://mybucket/myprefixindices/dt=1983-04-20-13/", pqLoc.PartitionLocation())
 }
 
 func TestParquetLocationPartitionKeys(t *testing.T) {
@@ -81,112 +80,102 @@ func TestParquetLocationPartitionKeys(t *testing.T) {
 
 	dt, ok1 := keys["dt"]
 	require.True(t, ok1)
-	assert.Equal(t, "1983-04-20", dt)
+	assert.Equal(t, "1983-04-20-13", dt)
 
-	tg, ok2 := keys["tg"]
-	require.True(t, ok2)
-	assert.Equal(t, "mylog", tg)
+	// tg partition key is deprecated
+	_, ok2 := keys["tg"]
+	require.False(t, ok2)
 }
 
 func TestParquetLocationPartition(t *testing.T) {
 	pqLoc := newGenericParquetLocation()
-	assert.Equal(t, "tg=mylog/dt=1983-04-20", pqLoc.Partition())
+	assert.Equal(t, "dt=1983-04-20-13", pqLoc.Partition())
 }
 
 func TestParquetLocationParseS3Key(t *testing.T) {
-	pqLoc, err := internal.ParseS3Key("myprefix/messages/tg=mylog/dt=1983-04-20/merged/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	pqLoc, err := internal.ParseS3Key("myprefix/messages/dt=1983-04-20-13/merged/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	require.NoError(t, err)
 
 	assert.Equal(t, internal.ParquetSchemaMessage, pqLoc.Schema)
 	assert.Equal(t, 1983, pqLoc.Timestamp.Year())
 	assert.Equal(t, time.Month(4), pqLoc.Timestamp.Month())
 	assert.Equal(t, 20, pqLoc.Timestamp.Day())
-	assert.Equal(t, "mylog", pqLoc.Tag)
 	assert.Equal(t, internal.ParquetMergeStatMerged, pqLoc.MergeStat)
 	assert.Equal(t, 13, pqLoc.Timestamp.Hour())
 	assert.Equal(t, "srcbucket", pqLoc.SrcBucket)
 	assert.Equal(t, "blue/orange/magic.csv.gz", pqLoc.SrcKey)
 
 	// Change schema
-	pqLoc, err = internal.ParseS3Key("myprefix/indices/tg=mylog/dt=1983-04-20/merged/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	pqLoc, err = internal.ParseS3Key("myprefix/indices/dt=1983-04-20-13/merged/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	require.NoError(t, err)
 	assert.Equal(t, internal.ParquetSchemaIndex, pqLoc.Schema)
 	assert.Equal(t, 1983, pqLoc.Timestamp.Year())
 	assert.Equal(t, time.Month(4), pqLoc.Timestamp.Month())
 	assert.Equal(t, 20, pqLoc.Timestamp.Day())
-	assert.Equal(t, "mylog", pqLoc.Tag)
 	assert.Equal(t, internal.ParquetMergeStatMerged, pqLoc.MergeStat)
 	assert.Equal(t, 13, pqLoc.Timestamp.Hour())
 	assert.Equal(t, "srcbucket", pqLoc.SrcBucket)
 	assert.Equal(t, "blue/orange/magic.csv.gz", pqLoc.SrcKey)
 
 	// Change merge stat
-	pqLoc, err = internal.ParseS3Key("myprefix/indices/tg=mylog/dt=1983-04-20/unmerged/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	pqLoc, err = internal.ParseS3Key("myprefix/indices/dt=1983-04-20-13/unmerged/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	require.NoError(t, err)
 	assert.Equal(t, internal.ParquetSchemaIndex, pqLoc.Schema)
 	assert.Equal(t, 1983, pqLoc.Timestamp.Year())
 	assert.Equal(t, time.Month(4), pqLoc.Timestamp.Month())
 	assert.Equal(t, 20, pqLoc.Timestamp.Day())
-	assert.Equal(t, "mylog", pqLoc.Tag)
 	assert.Equal(t, internal.ParquetMergeStatUnmerged, pqLoc.MergeStat)
 	assert.Equal(t, 13, pqLoc.Timestamp.Hour())
 	assert.Equal(t, "srcbucket", pqLoc.SrcBucket)
 	assert.Equal(t, "blue/orange/magic.csv.gz", pqLoc.SrcKey)
 
 	// No hour, src bucket and src key. Additionally no prefix
-	pqLoc, err = internal.ParseS3Key("indices/tg=mylog/dt=1983-04-20/unmerged/", "")
+	pqLoc, err = internal.ParseS3Key("indices/dt=1983-04-20-13/unmerged/", "")
 	require.NoError(t, err)
 	assert.Equal(t, internal.ParquetSchemaIndex, pqLoc.Schema)
 	assert.Equal(t, 1983, pqLoc.Timestamp.Year())
 	assert.Equal(t, time.Month(4), pqLoc.Timestamp.Month())
 	assert.Equal(t, 20, pqLoc.Timestamp.Day())
-	assert.Equal(t, "mylog", pqLoc.Tag)
 	assert.Equal(t, internal.ParquetMergeStatUnmerged, pqLoc.MergeStat)
-	assert.Equal(t, 0, pqLoc.Timestamp.Hour())
+	assert.Equal(t, 13, pqLoc.Timestamp.Hour())
 	assert.Equal(t, "", pqLoc.SrcBucket)
 	assert.Equal(t, "", pqLoc.SrcKey)
 }
 
 func TestParquetLocationParseS3KeyError(t *testing.T) {
 	// Prefix mismatch
-	ptr, err := internal.ParseS3Key("yourprefix/messages/tg=mylog/dt=1983-04-20/merged/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	ptr, err := internal.ParseS3Key("yourprefix/messages/dt=1983-04-20-13/merged/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	assert.Nil(t, ptr)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Prefix is not matched")
 
 	// Invalid schema
-	ptr, err = internal.ParseS3Key("myprefix/red/tg=mylog/dt=1983-04-20/merged/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	ptr, err = internal.ParseS3Key("myprefix/red/dt=1983-04-20-13/merged/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	assert.Nil(t, ptr)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Invalid schema name")
 
 	// Invalid dt key
-	ptr, err = internal.ParseS3Key("myprefix/messages/tg=mylog/dtx=1983-04-20/merged/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	ptr, err = internal.ParseS3Key("myprefix/messages/dtx=1983-04-20-13/merged/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	assert.Nil(t, ptr)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Invalid partition key (dt)")
 
 	// Invalid tg key
-	ptr, err = internal.ParseS3Key("myprefix/messages/tag=mylog/dt=1983-04-20/merged/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	ptr, err = internal.ParseS3Key("myprefix/messages/tag=mylog/dt=1983-04-20-13/merged/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	assert.Nil(t, ptr)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid partition key (tg)")
+	assert.Contains(t, err.Error(), "Invalid partition key (dt)")
 
 	// Invalid merge stat
-	ptr, err = internal.ParseS3Key("myprefix/messages/tg=mylog/dt=1983-04-20/unknown/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	ptr, err = internal.ParseS3Key("myprefix/messages/dt=1983-04-20-13/unknown/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	assert.Nil(t, ptr)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Invalid merge status")
 
 	// Invalid dt key format
-	ptr, err = internal.ParseS3Key("myprefix/messages/tg=mylog/dt=1983-04-20T00/merged/13/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
+	ptr, err = internal.ParseS3Key("myprefix/messages/dt=1983-04-20-13T00/merged/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
 	assert.Nil(t, ptr)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Fail to parse timestamp")
-
-	// Invalid hour format
-	ptr, err = internal.ParseS3Key("myprefix/messages/tg=mylog/dt=1983-04-20/merged/013/srcbucket/blue/orange/magic.csv.gz", "myprefix/")
-	assert.Nil(t, ptr)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Fail to parse timestamp")
+	assert.Contains(t, err.Error(), "Fail to parse dt key")
 }
