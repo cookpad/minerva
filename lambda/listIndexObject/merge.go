@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	objectTotalSizeLimit  int64 = 48 * 1000 * 1000 // 48MB
-	messageTotalSizeLimit       = 228 * 1000       // 228KB
+	objectTotalSizeLimit  int64 = 512 * 1000 * 1000 // 512MB
+	messageTotalSizeLimit       = 228 * 1000        // 228KB
 )
 
 type mergeQueueEmitter struct {

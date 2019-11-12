@@ -450,7 +450,7 @@
       MergeQueue: {
         Type: 'AWS::SQS::Queue',
         Properties: {
-          VisibilityTimeout: 300,
+          VisibilityTimeout: 450,
         },
       },
       PartitionQueue: {
@@ -485,8 +485,11 @@
             TableType: 'EXTERNAL_TABLE',
             PartitionKeys: [
               { Name: 'dt', Type: 'string' },
+              { Name: 'tg', Type: 'string' },
             ],
             StorageDescriptor: {
+              InputFormat: 'org.apache.hadoop.mapred.TextInputFormat',
+              OutputFormat: 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat',
               Columns: [
                 { Name: 'tag', Type: 'string' },
                 { Name: 'object_id', Type: 'bigint' },
@@ -496,6 +499,11 @@
               ],
               SerdeInfo: {
                 SerializationLibrary: 'org.apache.hadoop.hive.serde2.OpenCSVSerde',
+                Parameters: {
+                  separatorChar: ',',
+                  escapeChar: '\\',
+                  'serialization.format': '1',
+                },
               },
               Location: 's3://' + DataS3Bucket + '/' + DataS3Prefix + 'indices/',
             },
@@ -514,8 +522,11 @@
             TableType: 'EXTERNAL_TABLE',
             PartitionKeys: [
               { Name: 'dt', Type: 'string' },
+              { Name: 'tg', Type: 'string' },
             ],
             StorageDescriptor: {
+              InputFormat: 'org.apache.hadoop.mapred.TextInputFormat',
+              OutputFormat: 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat',
               Columns: [
                 { Name: 'timestamp', Type: 'bigint' },
                 { Name: 'object_id', Type: 'bigint' },
@@ -524,6 +535,11 @@
               ],
               SerdeInfo: {
                 SerializationLibrary: 'org.apache.hadoop.hive.serde2.OpenCSVSerde',
+                Parameters: {
+                  separatorChar: ',',
+                  escapeChar: '\\',
+                  'serialization.format': '1',
+                },
               },
               Location: 's3://' + DataS3Bucket + '/' + DataS3Prefix + 'messages/',
             },

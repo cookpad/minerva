@@ -5,6 +5,5 @@ func newArgument() arguments {
 }
 
 var (
-	MergeParquet = mergeParquet
-	NewArgument  = newArgument
+	NewArgument = newArgument
 )

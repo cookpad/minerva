@@ -4,19 +4,10 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"os"
-	"testing"
 
 	"github.com/m-mizutani/minerva/internal"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	main "github.com/m-mizutani/minerva/lambda/mergeIndexObject"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/xitongsys/parquet-go-source/local"
-	"github.com/xitongsys/parquet-go/parquet"
-	"github.com/xitongsys/parquet-go/reader"
-	"github.com/xitongsys/parquet-go/writer"
 )
 
 type dummyS3ClientMessage struct {
@@ -71,6 +62,7 @@ func (x *dummyS3ClientMessage) DeleteObjects(input *s3.DeleteObjectsInput) (*s3.
 	return &s3.DeleteObjectsOutput{}, nil
 }
 
+/*
 func dumpMessageParquet(rows []internal.MessageRecord) string {
 	fd, err := ioutil.TempFile("", "*.parquet")
 	if err != nil {
@@ -192,3 +184,4 @@ func TestHandlerMessage(t *testing.T) {
 	assert.Contains(t, dummyS3.deletedObjects, "c2.parquet")
 	assert.Contains(t, dummyS3.deletedObjects, "c3.parquet")
 }
+*/

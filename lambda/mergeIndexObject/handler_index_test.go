@@ -4,19 +4,10 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"os"
-	"testing"
 
 	"github.com/m-mizutani/minerva/internal"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	main "github.com/m-mizutani/minerva/lambda/mergeIndexObject"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/xitongsys/parquet-go-source/local"
-	"github.com/xitongsys/parquet-go/parquet"
-	"github.com/xitongsys/parquet-go/reader"
-	"github.com/xitongsys/parquet-go/writer"
 )
 
 type dummyS3ClientIndex struct {
@@ -62,6 +53,7 @@ func (x *dummyS3ClientIndex) GetObject(input *s3.GetObjectInput) (*s3.GetObjectO
 	return nil, nil
 }
 
+/*
 func dumpIndexParquet(rows []internal.IndexRecord) string {
 	fd, err := ioutil.TempFile("", "*.parquet")
 	if err != nil {
@@ -210,3 +202,5 @@ func TestHandlerIndexOneParquetFile(t *testing.T) {
 	}
 	assert.True(t, hasV5term)
 }
+
+*/

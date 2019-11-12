@@ -28,7 +28,7 @@ func handleRequest(ctx context.Context, event events.SQSEvent) error {
 		}
 
 		logger.WithField("args", args).Info("Start indexer")
-		if err := mergeParquet(args); err != nil {
+		if err := mergeCSV(args); err != nil {
 			return errors.Wrap(err, "Fail to merge parquet files")
 		}
 	}
