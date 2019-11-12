@@ -449,7 +449,7 @@
       MergeQueue: {
         Type: 'AWS::SQS::Queue',
         Properties: {
-          VisibilityTimeout: 300,
+          VisibilityTimeout: 450,
         },
       },
       PartitionQueue: {
