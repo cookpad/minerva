@@ -505,6 +505,7 @@
                 Parameters: {
                   separatorChar: ',',
                   escapeChar: '\\',
+                  quoteChar: '"',
                   'serialization.format': '1',
                 },
               },
@@ -540,6 +541,7 @@
                 Parameters: {
                   separatorChar: ',',
                   escapeChar: '\\',
+                  quoteChar: '"',
                   'serialization.format': '1',
                 },
               },
