@@ -408,8 +408,8 @@
             },
           ],
           ProvisionedThroughput: {
-            ReadCapacityUnits: 10,
-            WriteCapacityUnits: 10,
+            ReadCapacityUnits: 20,
+            WriteCapacityUnits: 20,
           },
           TimeToLiveSpecification: {
             AttributeName: 'expires_at',

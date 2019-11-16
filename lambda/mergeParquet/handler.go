@@ -207,10 +207,13 @@ func mergeParquet(args arguments) error {
 			return nil
 		}
 	}
-	defer os.Remove(*mergedFile)
 
-	if err := internal.UploadFileToS3(*mergedFile, args.Queue.DstObject.Region, args.Queue.DstObject.Bucket, args.Queue.DstObject.Key); err != nil {
-		return err
+	if mergedFile != nil {
+		defer os.Remove(*mergedFile)
+
+		if err := internal.UploadFileToS3(*mergedFile, args.Queue.DstObject.Region, args.Queue.DstObject.Bucket, args.Queue.DstObject.Key); err != nil {
+			return err
+		}
 	}
 
 	if err := internal.DeleteS3Objects(args.Queue.SrcObjects); err != nil {
