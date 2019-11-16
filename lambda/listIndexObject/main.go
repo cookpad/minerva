@@ -28,13 +28,21 @@ func handleRequest(ctx context.Context, event listParquetEvent) error {
 		MergeQueueURL: os.Getenv("MERGE_QUEUE"),
 	}
 
+	baseTime := time.Now().UTC()
 	if event.BaseTime != nil {
-		args.BaseTime = *event.BaseTime
-	} else {
-		args.BaseTime = time.Now().UTC().Add(-time.Hour)
+		baseTime = *event.BaseTime
 	}
 
-	logger.WithField("args", args).Info("Start indexer")
+	lastTime := baseTime.Add(-time.Hour)
+
+	args.BaseTime = lastTime
+	logger.WithField("args", args).Info("Start indexer for last timeslot")
+	if err := listParquet(args); err != nil {
+		return errors.Wrap(err, "Fail to list parquet files")
+	}
+
+	args.BaseTime = baseTime
+	logger.WithField("args", args).Info("Start indexer for current timeslot")
 	if err := listParquet(args); err != nil {
 		return errors.Wrap(err, "Fail to list parquet files")
 	}
