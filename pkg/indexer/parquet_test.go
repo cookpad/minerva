@@ -91,8 +91,8 @@ func TestCreateParquet(t *testing.T) {
 	dst := idxFiles[0].Dst()
 	dst.Bucket = "dst-bucket"
 	dst.Prefix = "dst-prefix/"
-	assert.Equal(t, "dst-prefix/indices/tg=mylog/dt=2019-09-18/unmerged/23/src-bucket/k1.json.parquet", dst.S3Key())
-	assert.Equal(t, "s3://dst-bucket/dst-prefix/indices/tg=mylog/dt=2019-09-18/", dst.PartitionLocation())
+	assert.Equal(t, "dst-prefix/indices/dt=2019-09-18-23/unmerged/src-bucket/k1.json.parquet", dst.S3Key())
+	assert.Equal(t, "s3://dst-bucket/dst-prefix/indices/dt=2019-09-18-23/", dst.PartitionLocation())
 
 	///read
 	idxFileList := idxDumper.Files()
