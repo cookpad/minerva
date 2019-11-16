@@ -266,7 +266,7 @@
           Events: {
             Every5mins: {
               Type: 'Schedule',
-              Properties: { Schedule: 'rate(1 hour)' },
+              Properties: { Schedule: 'rate(10 minutes)' },
             },
           },
         },
@@ -491,23 +491,17 @@
               { Name: 'dt', Type: 'string' },
             ],
             StorageDescriptor: {
-              InputFormat: 'org.apache.hadoop.mapred.TextInputFormat',
-              OutputFormat: 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat',
+              InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat',
               Columns: [
                 { Name: 'tag', Type: 'string' },
-                { Name: 'object_id', Type: 'bigint' },
-                { Name: 'seq', Type: 'int' },
+                { Name: 'timestamp', Type: 'bigint' },
                 { Name: 'field', Type: 'string' },
                 { Name: 'term', Type: 'string' },
+                { Name: 'object_id', Type: 'bigint' },
+                { Name: 'seq', Type: 'int' },
               ],
               SerdeInfo: {
-                SerializationLibrary: 'org.apache.hadoop.hive.serde2.OpenCSVSerde',
-                Parameters: {
-                  separatorChar: ',',
-                  escapeChar: '\\',
-                  quoteChar: '"',
-                  'serialization.format': '1',
-                },
+                SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe',
               },
               Location: 's3://' + DataS3Bucket + '/' + DataS3Prefix + 'indices/',
             },
@@ -528,8 +522,7 @@
               { Name: 'dt', Type: 'string' },
             ],
             StorageDescriptor: {
-              InputFormat: 'org.apache.hadoop.mapred.TextInputFormat',
-              OutputFormat: 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat',
+              InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat',
               Columns: [
                 { Name: 'timestamp', Type: 'bigint' },
                 { Name: 'object_id', Type: 'bigint' },
@@ -537,13 +530,7 @@
                 { Name: 'message', Type: 'string' },
               ],
               SerdeInfo: {
-                SerializationLibrary: 'org.apache.hadoop.hive.serde2.OpenCSVSerde',
-                Parameters: {
-                  separatorChar: ',',
-                  escapeChar: '\\',
-                  quoteChar: '"',
-                  'serialization.format': '1',
-                },
+                SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe',
               },
               Location: 's3://' + DataS3Bucket + '/' + DataS3Prefix + 'messages/',
             },

@@ -154,7 +154,7 @@ func (x *dummyS3ClientObjSizeTest) ListObjectsV2(input *s3.ListObjectsV2Input) (
 		var contents []*s3.Object
 		for _, s := range x.contentSize {
 			contents = append(contents, &s3.Object{
-				Key:  aws.String("test-prefix/indices/dt=2019-10-12-17/b1/" + uuid.New().String() + ".csv.gz"),
+				Key:  aws.String("test-prefix/indices/dt=2019-10-12-17/b1/" + uuid.New().String() + ".parquet"),
 				Size: &s,
 			})
 		}
@@ -185,10 +185,10 @@ func TestHandlerSplitObject(t *testing.T) {
 	args.S3Prefix = "test-prefix/"
 
 	dummyS3.contentSize = []int64{
-		200 * 1000 * 1000,
-		200 * 1000 * 1000,
+		20 * 1000 * 1000,
+		20 * 1000 * 1000,
 		// split
-		200 * 1000 * 1000,
+		20 * 1000 * 1000,
 	}
 	dummySQS.sentInput = []sqs.SendMessageInput{}
 
@@ -197,19 +197,19 @@ func TestHandlerSplitObject(t *testing.T) {
 	assert.Equal(t, 2, len(dummySQS.sentInput))
 
 	dummyS3.contentSize = []int64{
-		100 * 1000 * 1000,
-		100 * 1000 * 1000,
-		100 * 1000 * 1000,
-		100 * 1000 * 1000,
-		100 * 1000 * 1000,
+		10 * 1000 * 1000,
+		10 * 1000 * 1000,
+		10 * 1000 * 1000,
+		10 * 1000 * 1000,
 		// should split
-		100 * 1000 * 1000,
-		100 * 1000 * 1000,
-		100 * 1000 * 1000,
-		100 * 1000 * 1000,
-		100 * 1000 * 1000,
+		10 * 1000 * 1000,
+		10 * 1000 * 1000,
+		10 * 1000 * 1000,
+		10 * 1000 * 1000,
 		// should split
-		100 * 1000 * 1000,
+		10 * 1000 * 1000,
+		10 * 1000 * 1000,
+		10 * 1000 * 1000,
 	}
 	dummySQS.sentInput = []sqs.SendMessageInput{}
 	err = main.ListParquet(args)
@@ -241,7 +241,7 @@ func (x *dummyS3ClientMsgSizeTest) ListObjectsV2(input *s3.ListObjectsV2Input) (
 		var contents []*s3.Object
 		for i := 0; i < x.msgCount; i++ {
 			contents = append(contents, &s3.Object{
-				Key:  aws.String("test-prefix/indices/dt=2019-10-12-17/b1/" + uuid.New().String() + ".csv.vz"),
+				Key:  aws.String("test-prefix/indices/dt=2019-10-12-17/b1/" + uuid.New().String() + ".parquet"),
 				Size: aws.Int64(1),
 			})
 		}

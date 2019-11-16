@@ -71,7 +71,7 @@ const (
 // for parquet files on S3 and ParquetLocation includes logics of the rule.
 //
 // Key Format:
-// s3://{bucket}/{prefix}{schema}/{partition}/{merged,unmerged}/{hour}/{srcBucket}/{srcKey}.csv.gz
+// s3://{bucket}/{prefix}{schema}/{partition}/{merged,unmerged}/{hour}/{srcBucket}/{srcKey}.parquet
 type ParquetLocation struct {
 	Region       string
 	Bucket       string
@@ -187,7 +187,7 @@ func ParseS3Key(key, prefix string) (*ParquetLocation, error) {
 	loc := ParquetLocation{
 		Prefix: prefix,
 	}
-	// s3://{bucket}/{prefix}{schema}/{partition}/{merged,unmerged}/{srcBucket}/{srcKey}.csv.gz
+	// s3://{bucket}/{prefix}{schema}/{partition}/{merged,unmerged}/{srcBucket}/{srcKey}.parquet
 
 	if !strings.HasPrefix(key, prefix) {
 		return nil, fmt.Errorf("Prefix is not matched: %s %s", prefix, key)
