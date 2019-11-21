@@ -34,7 +34,7 @@ func execSearch(args arguments) (*events.APIGatewayProxyResponse, apiError) {
 		return nil, wrapUserError(err, 400, "Fail to parse requested body")
 	}
 
-	sql, err := argsToSQL(req, args.IndexTableName, args.MessageTableName)
+	sql, err := buildSQL(req, args.IndexTableName, args.MessageTableName)
 	if err != nil {
 		return nil, wrapUserError(err, 400, "Fail to create SQL for Athena")
 	}
@@ -71,7 +71,7 @@ func execSearch(args arguments) (*events.APIGatewayProxyResponse, apiError) {
 	}), nil
 }
 
-func argsToSQL(req request, idxTable, msgTable string) (*string, error) {
+func buildSQL(req request, idxTable, msgTable string) (*string, error) {
 	tokenizer := internal.NewSimpleTokenizer()
 
 	termSet := map[string]struct{}{}
@@ -96,50 +96,39 @@ func argsToSQL(req request, idxTable, msgTable string) (*string, error) {
 		termCond = append(termCond, fmt.Sprintf("term = '%s'", t))
 	}
 
+	// TODO: replace LIKE with regex feature
 	var queryCond []string
 	for _, query := range req.Query {
 		queryCond = append(queryCond, fmt.Sprintf("messages.message LIKE '%%%s%%'", query))
 	}
 
-	dtFmt := "2006-01-02"
+	dtFmt := "2006-01-02-15"
 	start, end := req.StartDateTime.UTC(), req.EndDateTime.UTC()
 
-	head := fmt.Sprintf(`
-	SELECT %s.tag
-		, %s.timestamp
-	 	, %s.message
-	FROM %s
-	LEFT JOIN %s
-	ON %s.object_id = %s.object_id
-		AND  %s.seq = %s.seq
-	 `,
-		idxTable,
-		msgTable,
-		msgTable,
-		idxTable, msgTable,
-		idxTable, msgTable,
-		idxTable, msgTable)
+	idxTerms := strings.Join(termCond, " OR ")
+	idxWhere := fmt.Sprintf(`'%s' <= dt AND dt <= '%s' AND (%s)`,
+		start.Format(dtFmt), end.Format(dtFmt), idxTerms)
+	msgTerms := strings.Join(queryCond, " AND ")
+	msgWhere := fmt.Sprintf(`'%s' <= messages.dt AND messages.dt <= '%s' AND %s`,
+		start.Format(dtFmt), end.Format(dtFmt), msgTerms)
 
-	where := fmt.Sprintf(`WHERE (%s)
-	AND %d <= %s.timestamp AND %s.timestamp <= %d
-	AND '%s' <= %s.dt AND %s.dt <= '%s'
-	AND '%s' <= %s.dt AND %s.dt <= '%s'
-	`,
-		strings.Join(termCond, " OR "),
-		start.Unix(), idxTable, idxTable, end.Unix(),
-		start.Format(dtFmt), idxTable, idxTable, end.Format(dtFmt),
-		start.Format(dtFmt), msgTable, msgTable, end.Format(dtFmt))
+	sql := fmt.Sprintf(`with tindex AS (
+		SELECT object_id, seq, tag
+			FROM indices
+			WHERE %s
+		GROUP BY  object_id, seq, tag, timestamp
+		HAVING count(distinct(field, term)) = %d
+	)
+	SELECT messages.timestamp,
+		tindex.tag,
+		messages.message
+	FROM messages
+	LEFT JOIN tindex
+	ON messages.object_id = tindex.object_id
+		AND messages.seq = tindex.seq
+		WHERE %s
+		ORDER BY messages.timestamp
+	`, idxWhere, len(idxTerms), msgWhere)
 
-	groupBy := fmt.Sprintf(`GROUP BY  %s.object_id, %s.seq, %s.tag, %s.message, %s.timestamp
-	HAVING COUNT(DISTINCT %s.term) = %d
-	AND %s
-	ORDER BY messages.timestamp
-	LIMIT %d;`,
-		idxTable, idxTable, idxTable, msgTable, msgTable,
-		idxTable, len(termCond),
-		strings.Join(queryCond, " AND "),
-		hardLimitOfSearchResult)
-
-	sql := head + where + groupBy
 	return &sql, nil
 }
