@@ -14,6 +14,12 @@ OUTPUT_FILE := $(CWD)/output.json
 STACK_NAME := $(shell jsonnet $(DEPLOY_CONFIG) | jq .StackName)
 BUILD_OPT :=
 
+ifdef TAGS
+TAGOPT=--tags $(TAGS)
+else
+TAGOPT=
+endif
+
 all: $(OUTPUT_FILE)
 
 clean:
@@ -55,6 +61,7 @@ $(OUTPUT_FILE): $(SAM_FILE)
 		--template-file $(SAM_FILE) \
 		--stack-name $(STACK_NAME) \
 		--capabilities CAPABILITY_IAM \
+		$(TAGOPT) \
 		--no-fail-on-empty-changeset
 	aws cloudformation describe-stack-resources \
 		--region $(shell jsonnet $(DEPLOY_CONFIG) | jq .Region) \
