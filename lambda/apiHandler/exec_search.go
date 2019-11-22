@@ -141,8 +141,8 @@ WHERE %s
 GROUP BY indices.object_id, indices.seq, indices.tag, indices.timestamp
 HAVING count(distinct(field, term)) = %d
 )
-SELECT messages.timestamp,
-tindex.tag,
+SELECT tindex.tag,
+messages.timestamp,
 messages.message
 FROM messages
 RIGHT JOIN tindex
