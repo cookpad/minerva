@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"testing"
-	"time"
 
 	main "github.com/m-mizutani/minerva/lambda/apiHandler"
 	"github.com/stretchr/testify/assert"
@@ -11,16 +10,18 @@ import (
 func TestArgsToSQL(t *testing.T) {
 	q := main.NewRequest(
 		[]string{"mizutani@cookpad.com"},
-		time.Date(2019, 10, 24, 11, 14, 15, 0, time.UTC),
-		time.Date(2019, 10, 24, 15, 14, 15, 0, time.UTC),
-	)
+		"2019-10-24T11:14:15",
+		"2019-10-24T15:14:15")
 
-	sql, err := main.ArgsToSQL(q, "indices", "messages")
+	sql, err := main.BuildSQL(q, "indices", "messages")
 	assert.NoError(t, err)
-	assert.Contains(t, *sql, "SELECT indices.tag")
-	assert.Contains(t, *sql, ", messages.timestamp")
-	assert.Contains(t, *sql, ", messages.message")
 	assert.Contains(t, *sql, "term = 'mizutani'")
 	assert.Contains(t, *sql, "term = 'cookpad'")
 	assert.Contains(t, *sql, "term = 'com'")
+	assert.Contains(t, *sql, "'2019-10-24-11' <= messages.dt")
+	assert.Contains(t, *sql, "messages.dt <= '2019-10-24-15'")
+	assert.Contains(t, *sql, "'2019-10-24-11' <= indices.dt")
+	assert.Contains(t, *sql, "indices.dt <= '2019-10-24-15'")
+
+	// fmt.Println(*sql)
 }

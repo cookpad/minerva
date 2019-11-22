@@ -1,15 +1,18 @@
 package main
 
-import "time"
-
 var (
-	ArgsToSQL  = argsToSQL
+	BuildSQL   = buildSQL
 	NewRequest = newRequest
 )
 
-func newRequest(queries []string, start, end time.Time) request {
+func newRequest(terms []string, start, end string) request {
+	var querySet []query
+	for _, t := range terms {
+		querySet = append(querySet, query{Term: t})
+	}
+
 	return request{
-		Query:         queries,
+		Query:         querySet,
 		StartDateTime: start,
 		EndDateTime:   end,
 	}
