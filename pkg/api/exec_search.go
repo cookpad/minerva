@@ -1,15 +1,16 @@
-package main
+package api
 
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/athena"
+	"github.com/gin-gonic/gin"
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -32,11 +33,16 @@ type request struct {
 	EndDateTime   string  `json:"end_dt"`
 }
 
-func execSearch(args arguments) (*events.APIGatewayProxyResponse, apiError) {
-	logger.WithField("args", args).Info("Start putQuery")
+func execSearch(args Arguments, c *gin.Context) (*apiResponse, apiError) {
+	Logger.WithField("context", *c).Info("Start putQuery")
 
 	var req request
-	if err := json.Unmarshal([]byte(args.Request.Body), &req); err != nil {
+	body, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		return nil, wrapSystemError(err, 500, "Fail to read body")
+	}
+
+	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, wrapUserError(err, 400, "Fail to parse requested body")
 	}
 
@@ -58,10 +64,10 @@ func execSearch(args arguments) (*events.APIGatewayProxyResponse, apiError) {
 		},
 	}
 
-	logger.WithField("input", input).Info("Athena Query")
+	Logger.WithField("input", input).Info("Athena Query")
 
 	response, err := athenaClient.StartQueryExecution(input)
-	logger.WithFields(logrus.Fields{
+	Logger.WithFields(logrus.Fields{
 		"err":    err,
 		"input":  input,
 		"output": response,
@@ -70,11 +76,11 @@ func execSearch(args arguments) (*events.APIGatewayProxyResponse, apiError) {
 	if err != nil {
 		return nil, wrapSystemError(err, 500, "Fail StartQueryExecution in putQuery")
 	}
-	logger.WithField("response", response).Debug("Sent query")
+	Logger.WithField("response", response).Debug("Sent query")
 
-	return respond(201, &startQueryExecutionResponse{
+	return &apiResponse{201, &startQueryExecutionResponse{
 		QueryID: aws.StringValue(response.QueryExecutionId),
-	}), nil
+	}}, nil
 }
 
 func buildSQL(req request, idxTable, msgTable string) (*string, error) {

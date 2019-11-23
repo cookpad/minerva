@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/csv"
@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/athena"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -103,7 +103,7 @@ func loadLogs(region, s3path, limit, offset string) ([]logData, *getQueryExecuti
 		}
 	}
 
-	logger.WithFields(logrus.Fields{
+	Logger.WithFields(logrus.Fields{
 		"region": region,
 		"s3path": s3path,
 		"limit":  qLimit,
@@ -138,22 +138,22 @@ func loadLogs(region, s3path, limit, offset string) ([]logData, *getQueryExecuti
 	return logs, &getQueryExecutionMetaData{Total: total, Offset: qOffset, Limit: qLimit}, nil
 }
 
-func getSearchResult(args arguments) (*events.APIGatewayProxyResponse, apiError) {
-	logger.WithField("args", args).Info("Start getQuery")
+func getSearchResult(args Arguments, c *gin.Context) (*apiResponse, apiError) {
+	Logger.WithField("args", args).Info("Start getQuery")
 
-	searchID := args.Request.PathParameters["search_id"]
-	limit := args.Request.QueryStringParameters["limit"]
-	offset := args.Request.QueryStringParameters["offset"]
+	queryID := c.Param("query_id")
+	limit := c.Param("limit")
+	offset := c.Param("offset")
 
 	resp := getQueryExecutionResponse{
-		QueryID: searchID,
+		QueryID: queryID,
 	}
 
 	ssn := session.Must(session.NewSession(&aws.Config{Region: &args.Region}))
 	athenaClient := athena.New(ssn)
 
 	output, err := athenaClient.GetQueryExecution(&athena.GetQueryExecutionInput{
-		QueryExecutionId: &searchID,
+		QueryExecutionId: &queryID,
 	})
 	if err != nil {
 		return nil, wrapSystemError(err, 500, "Fail GetQueryExecution in getQuery")
@@ -183,7 +183,7 @@ func getSearchResult(args arguments) (*events.APIGatewayProxyResponse, apiError)
 		resp.MetaData.Offset = meta.Offset
 		resp.MetaData.Limit = meta.Limit
 	}
-	logger.WithField("output", output).Debug("done")
+	Logger.WithField("output", output).Debug("done")
 
-	return respond(200, &resp), nil
+	return &apiResponse{200, &resp}, nil
 }

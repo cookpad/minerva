@@ -1,19 +1,19 @@
-package main_test
+package api_test
 
 import (
 	"testing"
 
-	main "github.com/m-mizutani/minerva/lambda/apiHandler"
+	"github.com/m-mizutani/minerva/pkg/api"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestArgsToSQL(t *testing.T) {
-	q := main.NewRequest(
+	q := api.NewRequest(
 		[]string{"mizutani@cookpad.com"},
 		"2019-10-24T11:14:15",
 		"2019-10-24T15:14:15")
 
-	sql, err := main.BuildSQL(q, "indices", "messages")
+	sql, err := api.BuildSQL(q, "indices", "messages")
 	assert.NoError(t, err)
 	assert.Contains(t, *sql, "term = 'mizutani'")
 	assert.Contains(t, *sql, "term = 'cookpad'")

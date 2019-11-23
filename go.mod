@@ -6,13 +6,15 @@ require (
 	github.com/apache/thrift v0.13.0 // indirect
 	github.com/aws/aws-lambda-go v1.13.3
 	github.com/aws/aws-sdk-go v1.25.32
+	github.com/awslabs/aws-lambda-go-api-proxy v0.5.0
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
+	github.com/gin-gonic/gin v1.4.0
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/guregu/dynamo v1.4.1
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
-	github.com/kr/pretty v0.1.0 // indirect
 	github.com/m-mizutani/rlogs v0.1.3
+	github.com/m-mizutani/task-kitchen v0.0.0-20190423132322-ea758b3cc3d0
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
@@ -25,3 +27,5 @@ require (
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.2.5 // indirect
 )
+
+replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
