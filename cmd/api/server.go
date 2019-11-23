@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -86,13 +85,11 @@ func main() {
 			api.SetupRoute(v1, args)
 
 			bindAddr := fmt.Sprintf("%s:%d", params.addr, params.port)
-			r.Run(bindAddr)
-			return nil
+			return r.Run(bindAddr)
 		},
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
+	if err := app.Run(os.Args); err != nil {
+		logger.WithError(err).Fatal("Server error")
 	}
 }
