@@ -18,7 +18,7 @@ import (
 const hardLimitOfSearchResult = 1000 * 1000 // 1,000,000
 
 type startQueryExecutionResponse struct {
-	SearchID string `json:"search_id"`
+	QueryID string `json:"query_id"`
 }
 
 type query struct {
@@ -73,7 +73,7 @@ func execSearch(args arguments) (*events.APIGatewayProxyResponse, apiError) {
 	logger.WithField("response", response).Debug("Sent query")
 
 	return respond(201, &startQueryExecutionResponse{
-		SearchID: aws.StringValue(response.QueryExecutionId),
+		QueryID: aws.StringValue(response.QueryExecutionId),
 	}), nil
 }
 
