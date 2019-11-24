@@ -33,6 +33,8 @@ type request struct {
 	EndDateTime   string  `json:"end_dt"`
 }
 
+const searchRowLimit = 1000 * 1000
+
 func execSearch(args Arguments, c *gin.Context) (*apiResponse, apiError) {
 	Logger.WithField("context", *c).Info("Start putQuery")
 
@@ -155,7 +157,8 @@ RIGHT JOIN tindex
 ON messages.object_id = tindex.object_id
 AND messages.seq = tindex.seq
 WHERE %s
-ORDER BY messages.timestamp`, idxWhere, len(termSet), msgWhere)
+ORDER BY messages.timestamp
+LIMIT %d`, idxWhere, len(termSet), msgWhere, searchRowLimit)
 
 	return &sql, nil
 }
