@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	indexQueueSize = 128
+	indexQueueSize = 4
 )
 
 type arguments struct {

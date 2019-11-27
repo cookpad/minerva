@@ -23,7 +23,7 @@ type logRecord struct {
 	Src       s3Loc
 }
 
-const loadMessageBatchSize = 1024
+const loadMessageBatchSize = 4098
 
 // LoadMessage load log data from S3 bucket
 func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
@@ -62,6 +62,7 @@ func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
 			if len(records) >= loadMessageBatchSize {
 				q := logQueue{Records: records}
 				ch <- &q
+				records = []logRecord{}
 			}
 		}
 

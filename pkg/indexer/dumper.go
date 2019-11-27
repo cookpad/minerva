@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"runtime"
 
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
@@ -93,7 +92,7 @@ func (x *baseDumper) open() error {
 
 	x.current.fw = fw
 
-	pw, err := writer.NewParquetWriter(fw, x.obj, 4)
+	pw, err := writer.NewParquetWriter(fw, x.obj, 1)
 	if err != nil {
 		return errors.Wrap(err, "Fail to create parquet writer")
 	}
@@ -110,10 +109,6 @@ func (x *baseDumper) refresh(dataSize int) error {
 		if err := x.Close(); err != nil {
 			return err
 		}
-
-		profiler.Start("GC")
-		runtime.GC()
-		profiler.Stop("GC")
 
 		if err := x.open(); err != nil {
 			return err
@@ -186,11 +181,8 @@ type indexTerm struct {
 func (x *indexDumper) Dump(q *logRecord, objID int64) error {
 	terms := map[indexTerm]bool{}
 
-	profiler.Start("toKeyValuePairs")
 	kvList := toKeyValuePairs(q.Value, "", false)
-	profiler.Stop("toKeyValuePairs")
 
-	profiler.Start("tokenize")
 	for _, kv := range kvList {
 		tokens := x.tokenizer.Split(fmt.Sprintf("%v", kv.Value))
 
@@ -203,7 +195,6 @@ func (x *indexDumper) Dump(q *logRecord, objID int64) error {
 			terms[t] = true
 		}
 	}
-	profiler.Stop("tokenize")
 
 	for it := range terms {
 		rec := internal.IndexRecord{
@@ -219,11 +210,9 @@ func (x *indexDumper) Dump(q *logRecord, objID int64) error {
 			return err
 		}
 
-		profiler.Start("write")
 		if err := x.current.pw.Write(rec); err != nil {
 			return errors.Wrap(err, "Index write error")
 		}
-		profiler.Stop("write")
 	}
 
 	return nil
