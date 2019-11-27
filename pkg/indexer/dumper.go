@@ -17,7 +17,7 @@ import (
 
 type dumper interface {
 	Files() []*parquetFile
-	Dump(q *logQueue, objID int64) error
+	Dump(q *logRecord, objID int64) error
 	Close() error
 	Delete() error
 	Type() string
@@ -183,7 +183,7 @@ type indexTerm struct {
 	term  string
 }
 
-func (x *indexDumper) Dump(q *logQueue, objID int64) error {
+func (x *indexDumper) Dump(q *logRecord, objID int64) error {
 	terms := map[indexTerm]bool{}
 
 	profiler.Start("toKeyValuePairs")
@@ -249,7 +249,7 @@ func newMessageDumper(dst internal.ParquetLocation) (dumper, error) {
 	return d, nil
 }
 
-func (x *messageDumper) Dump(q *logQueue, objID int64) error {
+func (x *messageDumper) Dump(q *logRecord, objID int64) error {
 	rec := internal.MessageRecord{
 		Timestamp: q.Timestamp.Unix(),
 		Message:   q.Message,

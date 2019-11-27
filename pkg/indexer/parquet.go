@@ -23,19 +23,21 @@ func (x dumpers) dump(dst internal.ParquetLocation, q *logQueue, objID int64, ne
 		d = newdump
 	}
 
-	if err := d.Dump(q, objID); err != nil {
-		return errors.Wrapf(err, "Fail to dump queue: %v", *q)
+	for _, r := range q.Records {
+		if err := d.Dump(&r, objID); err != nil {
+			return errors.Wrapf(err, "Fail to dump queue: %v", *q)
+		}
 	}
 
 	return nil
 }
 
-func newPqLoc(q *logQueue) (msgDst, idxDst internal.ParquetLocation) {
+func newPqLoc(r *logRecord) (msgDst, idxDst internal.ParquetLocation) {
 	dst := internal.ParquetLocation{
 		MergeStat: internal.ParquetMergeStatUnmerged,
-		Timestamp: q.Timestamp,
-		SrcBucket: q.Src.Bucket,
-		SrcKey:    q.Src.Key(),
+		Timestamp: r.Timestamp,
+		SrcBucket: r.Src.Bucket,
+		SrcKey:    r.Src.Key(),
 	}
 
 	// copy common variables
@@ -56,17 +58,19 @@ func DumpParquetFiles(ch chan *logQueue, meta internal.MetaAccessor) ([]dumper, 
 			return nil, errors.Wrap(q.Err, "Fail to receive queue")
 		}
 
-		objID, err := meta.GetObjecID(q.Src.Bucket, q.Src.Key())
-		if err != nil {
-			return nil, err
-		}
+		for _, r := range q.Records {
+			objID, err := meta.GetObjecID(r.Src.Bucket, r.Src.Key())
+			if err != nil {
+				return nil, err
+			}
 
-		msgDst, idxDst := newPqLoc(q)
-		if err := dumperMap.dump(msgDst, q, objID, newMessageDumper); err != nil {
-			return nil, err
-		}
-		if err := dumperMap.dump(idxDst, q, objID, newIndexDumper); err != nil {
-			return nil, err
+			msgDst, idxDst := newPqLoc(&r)
+			if err := dumperMap.dump(msgDst, q, objID, newMessageDumper); err != nil {
+				return nil, err
+			}
+			if err := dumperMap.dump(idxDst, q, objID, newIndexDumper); err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -51,18 +51,27 @@ func TestCreateParquet(t *testing.T) {
 
 	queues := []*indexer.LogQueue{
 		{
-			Timestamp: time.Date(2019, 9, 18, 23, 0, 0, 0, time.UTC),
-			Tag:       "mylog",
-			Message:   "test message 1",
-			Value:     &logMessage{"10.0.0.1", "10.0.0.2", "Get"},
-			Seq:       0,
+			Records: {
+				{
+					Timestamp: time.Date(2019, 9, 18, 23, 0, 0, 0, time.UTC),
+					Tag:       "mylog",
+					Message:   "test message 1",
+					Value:     &logMessage{"10.0.0.1", "10.0.0.2", "Get"},
+					Seq:       0,
+				},
+			},
 		},
 		{
-			Timestamp: time.Date(2019, 9, 18, 23, 1, 0, 0, time.UTC),
-			Tag:       "mylog",
-			Message:   "test message 2",
-			Value:     &logMessage{"10.0.0.3", "10.0.3.2", "Get"},
-			Seq:       0,
+			Records: {
+				{
+
+					Timestamp: time.Date(2019, 9, 18, 23, 1, 0, 0, time.UTC),
+					Tag:       "mylog",
+					Message:   "test message 2",
+					Value:     &logMessage{"10.0.0.3", "10.0.3.2", "Get"},
+					Seq:       0,
+				},
+			},
 		},
 		{
 			Timestamp: time.Date(2019, 9, 18, 23, 2, 0, 0, time.UTC),

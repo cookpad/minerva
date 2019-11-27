@@ -28,7 +28,7 @@ func testLoadMessage(loc s3Loc, queues []*LogQueue) chan *logQueue {
 		defer close(ch)
 
 		for _, q := range queues {
-			q.Src = loc
+			q.Records = []logRecord{{Src: loc}}
 			ch <- (*logQueue)(q)
 		}
 	}()
@@ -42,7 +42,7 @@ func testLoadMessageChannel(loc s3Loc, input chan *LogQueue) chan *logQueue {
 		defer close(ch)
 
 		for q := range input {
-			q.Src = loc
+			q.Records = []logRecord{{Src: loc}}
 			ch <- (*logQueue)(q)
 		}
 	}()

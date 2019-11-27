@@ -9,6 +9,11 @@ import (
 )
 
 type logQueue struct {
+	Err     error
+	Records []logRecord
+}
+
+type logRecord struct {
 	Err       error
 	Timestamp time.Time
 	Tag       string
@@ -18,6 +23,8 @@ type logQueue struct {
 	Src       s3Loc
 }
 
+const loadMessageBatchSize = 1024
+
 // LoadMessage load log data from S3 bucket
 func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
 	ch := make(chan *logQueue, indexQueueSize)
@@ -25,6 +32,7 @@ func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
 	go func() {
 		defer close(ch)
 
+		var records []logRecord
 		for log := range reader.Read(&rlogs.AwsS3LogSource{
 			Region: src.Region,
 			Bucket: src.Bucket,
@@ -41,8 +49,7 @@ func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
 				return
 			}
 
-			q := new(logQueue)
-			*q = logQueue{
+			r := logRecord{
 				Message:   string(raw),
 				Timestamp: log.Log.Timestamp,
 				Value:     log.Log.Values,
@@ -50,7 +57,17 @@ func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
 				Seq:       int32(log.Log.Seq),
 				Src:       src,
 			}
-			ch <- q
+
+			records = append(records, r)
+			if len(records) >= loadMessageBatchSize {
+				q := logQueue{Records: records}
+				ch <- &q
+			}
+		}
+
+		if len(records) > 0 {
+			q := logQueue{Records: records}
+			ch <- &q
 		}
 	}()
 
