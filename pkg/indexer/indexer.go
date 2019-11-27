@@ -26,6 +26,8 @@ type arguments struct {
 	Reader         *rlogs.Reader
 }
 
+var profiler = internal.NewProfile()
+
 func makeIndex(args arguments) error {
 	ch := loadMessage(args.Src, args.Reader)
 	meta := internal.NewMetaDynamoDB(args.BaseRegion, args.MetaTable)
@@ -65,6 +67,8 @@ func makeIndex(args arguments) error {
 			}
 		}
 	}
+
+	logger.WithField("profile", profiler.Pack()).Info("Done indexing")
 
 	return nil
 }

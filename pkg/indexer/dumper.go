@@ -52,7 +52,7 @@ var DumperParquetSizeLimit = 128 * 1000 * 1000 // 128MB
 
 const (
 	// About parquet format: https://parquet.apache.org/documentation/latest/
-	parquetRowGroupSize = 16 * 1024 * 1024 //16M
+	parquetRowGroupSize = 128 * 1024 * 1024 //128M
 )
 
 func (x *baseDumper) Files() []*parquetFile              { return x.files }
@@ -111,7 +111,9 @@ func (x *baseDumper) refresh(dataSize int) error {
 			return err
 		}
 
+		profiler.Start("GC")
 		runtime.GC()
+		profiler.Stop("GC")
 
 		if err := x.open(); err != nil {
 			return err
@@ -123,6 +125,7 @@ func (x *baseDumper) refresh(dataSize int) error {
 }
 
 func (x *baseDumper) Close() error {
+	profiler.Start("dumper.Close")
 	logger.WithFields(logrus.Fields{
 		"currentPath": x.current.filePath,
 		"dst":         x.current.dst,
@@ -133,6 +136,7 @@ func (x *baseDumper) Close() error {
 		x.current.fw.Close()
 		x.current.fw = nil
 		x.current.pw = nil
+		profiler.Stop("dumper.Close")
 	}()
 
 	if err := x.current.pw.WriteStop(); err != nil {
@@ -182,8 +186,11 @@ type indexTerm struct {
 func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 	terms := map[indexTerm]bool{}
 
+	profiler.Start("toKeyValuePairs")
 	kvList := toKeyValuePairs(q.Value, "", false)
+	profiler.Stop("toKeyValuePairs")
 
+	profiler.Start("tokenize")
 	for _, kv := range kvList {
 		tokens := x.tokenizer.Split(fmt.Sprintf("%v", kv.Value))
 
@@ -196,7 +203,9 @@ func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 			terms[t] = true
 		}
 	}
+	profiler.Stop("tokenize")
 
+	profiler.Start("dumping")
 	for it := range terms {
 		rec := internal.IndexRecord{
 			Tag:       q.Tag,
@@ -207,14 +216,20 @@ func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 			Seq:       int32(q.Seq),
 		}
 
+		profiler.Start("refresh")
 		if err := x.refresh(len(q.Tag) + len(it.field) + len(it.term)); err != nil {
 			return err
 		}
+		profiler.Stop("refresh")
 
+		profiler.Start("write")
 		if err := x.current.pw.Write(rec); err != nil {
 			return errors.Wrap(err, "Index write error")
 		}
+		profiler.Stop("write")
 	}
+
+	profiler.Stop("dumping")
 
 	return nil
 }
