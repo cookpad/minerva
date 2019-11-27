@@ -12,7 +12,8 @@ type s3Loc struct {
 	Prefix string
 }
 
-func newS3Loc(region, bucket, key string) s3Loc {
+// NewS3Loc provides constructor of s3Loc
+func NewS3Loc(region, bucket, key string) s3Loc {
 	loc := s3Loc{
 		Region: region,
 		Bucket: bucket,
