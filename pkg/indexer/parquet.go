@@ -47,7 +47,8 @@ func newPqLoc(q *logQueue) (msgDst, idxDst internal.ParquetLocation) {
 	return
 }
 
-func dumpParquetFiles(ch chan *logQueue, meta internal.MetaAccessor) ([]dumper, error) {
+// DumpParquetFiles dump log data to local parquet files
+func DumpParquetFiles(ch chan *logQueue, meta internal.MetaAccessor) ([]dumper, error) {
 	dumperMap := dumpers{}
 
 	for q := range ch {

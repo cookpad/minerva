@@ -225,7 +225,7 @@
               MESSAGE_TABLE_NAME: MessageTableName,
               META_TABLE_NAME: { Ref: 'MetaTable' },
               PARTITION_QUEUE: { Ref: 'PartitionQueue' },
-              LOG_LEVEL: 'DEBUG',
+              LOG_LEVEL: 'INFO',
             },
           },
           Events: {

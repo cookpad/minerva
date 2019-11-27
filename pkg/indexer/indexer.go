@@ -29,9 +29,9 @@ type arguments struct {
 var profiler = internal.NewProfile()
 
 func makeIndex(args arguments) error {
-	ch := loadMessage(args.Src, args.Reader)
+	ch := LoadMessage(args.Src, args.Reader)
 	meta := internal.NewMetaDynamoDB(args.BaseRegion, args.MetaTable)
-	dumpers, err := dumpParquetFiles(ch, meta)
+	dumpers, err := DumpParquetFiles(ch, meta)
 
 	logger.WithFields(logrus.Fields{
 		"dumpers": dumpers,

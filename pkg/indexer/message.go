@@ -18,7 +18,8 @@ type logQueue struct {
 	Src       s3Loc
 }
 
-func loadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
+// LoadMessage load log data from S3 bucket
+func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
 	ch := make(chan *logQueue, indexQueueSize)
 
 	go func() {

@@ -52,7 +52,7 @@ var DumperParquetSizeLimit = 128 * 1000 * 1000 // 128MB
 
 const (
 	// About parquet format: https://parquet.apache.org/documentation/latest/
-	parquetRowGroupSize = 128 * 1024 * 1024 //128M
+	parquetRowGroupSize = 16 * 1024 * 1024 // 16M
 )
 
 func (x *baseDumper) Files() []*parquetFile              { return x.files }
@@ -205,7 +205,6 @@ func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 	}
 	profiler.Stop("tokenize")
 
-	profiler.Start("dumping")
 	for it := range terms {
 		rec := internal.IndexRecord{
 			Tag:       q.Tag,
@@ -216,11 +215,9 @@ func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 			Seq:       int32(q.Seq),
 		}
 
-		profiler.Start("refresh")
 		if err := x.refresh(len(q.Tag) + len(it.field) + len(it.term)); err != nil {
 			return err
 		}
-		profiler.Stop("refresh")
 
 		profiler.Start("write")
 		if err := x.current.pw.Write(rec); err != nil {
@@ -228,8 +225,6 @@ func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 		}
 		profiler.Stop("write")
 	}
-
-	profiler.Stop("dumping")
 
 	return nil
 }

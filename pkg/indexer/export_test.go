@@ -3,10 +3,8 @@ package indexer
 import "github.com/m-mizutani/minerva/internal"
 
 var (
-	NewS3Loc         = newS3Loc
-	DumpParquetFiles = dumpParquetFiles
-	ToKeyValuePairs  = toKeyValuePairs
-	LoadMessage      = loadMessage
+	NewS3Loc        = newS3Loc
+	ToKeyValuePairs = toKeyValuePairs
 
 	TestLoadMessage        = testLoadMessage
 	TestLoadMessageChannel = testLoadMessageChannel
