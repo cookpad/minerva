@@ -148,6 +148,7 @@ FROM indices
 WHERE %s
 GROUP BY indices.object_id, indices.seq, indices.tag, indices.timestamp
 HAVING count(distinct(field, term)) = %d
+LIMIT %d
 )
 SELECT tindex.tag,
 messages.timestamp,
@@ -157,8 +158,8 @@ RIGHT JOIN tindex
 ON messages.object_id = tindex.object_id
 AND messages.seq = tindex.seq
 WHERE %s
-ORDER BY messages.timestamp
-LIMIT %d`, idxWhere, len(termSet), msgWhere, searchRowLimit)
+ORDER BY messages.timestamp`,
+		idxWhere, len(termSet), searchRowLimit, msgWhere)
 
 	return &sql, nil
 }
