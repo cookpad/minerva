@@ -35,7 +35,11 @@ func SetupRoute(r *gin.RouterGroup, args Arguments) {
 	r.POST("/search", func(c *gin.Context) {
 		handleRequest(args, c, execSearch)
 	})
-	r.GET("/search/:query_id/result", func(c *gin.Context) {
-		handleRequest(args, c, getSearchResult)
+
+	r.GET("/search/:query_id/logs", func(c *gin.Context) {
+		handleRequest(args, c, getSearchLogs)
+	})
+	r.GET("/search/:query_id/timeseries", func(c *gin.Context) {
+		handleRequest(args, c, getSearchTimeSeries)
 	})
 }
