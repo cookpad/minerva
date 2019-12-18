@@ -14,7 +14,6 @@ const (
 )
 
 type arguments struct {
-	AthenaDBName   string
 	IndexTable     string
 	MessageTable   string
 	MetaTable      string

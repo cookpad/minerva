@@ -123,6 +123,10 @@ func toKeyValuePairs(v interface{}, keyPrefix string, omitempty bool) []keyValue
 		return pList
 
 	case reflect.Ptr, reflect.UnsafePointer:
+		if value.Elem().IsZero() {
+			return []keyValuePair{}
+		}
+
 		return toKeyValuePairs(value.Elem().Interface(), keyPrefix, false)
 
 	default: // will be ignored
