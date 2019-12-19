@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/aws/aws-sdk-go/service/athena"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 const hardLimitOfQueryResult = 1000 * 1000 // 1,000,000
@@ -27,11 +28,17 @@ type getQueryLogsResponse struct {
 }
 
 func getSearchLogs(args Arguments, c *gin.Context) (*apiResponse, apiError) {
-	Logger.WithField("args", args).Info("Start getSearchLogs")
 
 	queryID := c.Param("query_id")
-	limit := c.Param("limit")
-	offset := c.Param("offset")
+	limit := c.Query("limit")
+	offset := c.Query("offset")
+
+	Logger.WithFields(logrus.Fields{
+		"args":    args,
+		"limit":   limit,
+		"offset":  offset,
+		"queryID": queryID,
+	}).Info("Start getSearchLogs")
 
 	resp := getQueryLogsResponse{
 		QueryID: queryID,
