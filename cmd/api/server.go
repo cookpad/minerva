@@ -38,7 +38,7 @@ func main() {
 			&cli.IntFlag{
 				Name:        "port",
 				Aliases:     []string{"p"},
-				Value:       8000,
+				Value:       10080,
 				Usage:       "Bind port number",
 				Destination: &params.port,
 			},
@@ -47,18 +47,6 @@ func main() {
 				Aliases:     []string{"d"},
 				Usage:       "Athena DB name",
 				Destination: &args.DatabaseName,
-			},
-			&cli.StringFlag{
-				Name:        "index-table",
-				Usage:       "Index table name",
-				Value:       "indices",
-				Destination: &args.IndexTableName,
-			},
-			&cli.StringFlag{
-				Name:        "message-table",
-				Usage:       "message table name",
-				Value:       "messages",
-				Destination: &args.MessageTableName,
 			},
 			&cli.StringFlag{
 				Name:        "output",
@@ -71,6 +59,20 @@ func main() {
 				Aliases:     []string{"r"},
 				Usage:       "AWS region",
 				Destination: &args.Region,
+			},
+
+			// Optional parameters
+			&cli.StringFlag{
+				Name:        "index-table",
+				Usage:       "Index table name",
+				Value:       "indices",
+				Destination: &args.IndexTableName,
+			},
+			&cli.StringFlag{
+				Name:        "message-table",
+				Usage:       "message table name",
+				Value:       "messages",
+				Destination: &args.MessageTableName,
 			},
 		},
 
