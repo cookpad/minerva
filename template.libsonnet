@@ -575,7 +575,7 @@
               Type: 'Api',
               Properties: {
                 Method: 'get',
-                Path: '/api/v1/search/{search_id}/result',
+                Path: '/api/v1/search/{search_id}/logs',
                 RestApiId: { Ref: 'ApiGW' },
                 Auth: { ApiKeyRequired: true },
               },
@@ -584,7 +584,7 @@
               Type: 'Api',
               Properties: {
                 Method: 'get',
-                Path: '/api/v1/search/{search_id}/timeline',
+                Path: '/api/v1/search/{search_id}/timeseries',
                 RestApiId: { Ref: 'ApiGW' },
                 Auth: { ApiKeyRequired: true },
               },
