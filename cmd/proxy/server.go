@@ -26,7 +26,7 @@ func main() {
 
 	app := &cli.App{
 		Name:  "api",
-		Usage: "minerva API local server",
+		Usage: "minerva API proxy server",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "addr",

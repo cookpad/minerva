@@ -4,7 +4,7 @@ STACK_CONFIG ?= stack.jsonnet
 CODE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 CWD := ${CURDIR}
 BINPATH := $(CWD)/build/makePartition $(CWD)/build/listIndexObject $(CWD)/build/mergeIndexObject $(CWD)/build/apiHandler $(CWD)/build/errorHandler
-SRC := $(CODE_DIR)/internal/*.go
+SRC := $(CODE_DIR)/internal/*.go $(CODE_DIR)/pkg/*/*.go
 
 TEMPLATE_FILE := template.json
 SAM_FILE := sam.yml
@@ -73,3 +73,15 @@ delete:
 		--region $(shell jsonnet $(DEPLOY_CONFIG) | jq .Region) \
 		--stack-name $(STACK_NAME)
 	rm -f $(OUTPUT_FILE)
+
+$(CWD)/build/proxy: $(CODE_DIR)/cmd/proxy/*.go $(SRC)
+	cd $(CODE_DIR) && go build -v $(BUILD_OPT) -o $(CWD)/build/proxy $(CODE_DIR)/cmd/proxy && cd $(CWD)
+
+proxy: $(CWD)/build/proxy
+	$(CWD)/build/proxy -d $(DB_NAME) -o $(S3_OUTPUT) -r $(REGION)
+
+$(CWD)/build/mock: $(CODE_DIR)/cmd/mock/*.go $(SRC)
+	cd $(CODE_DIR) && go build -v $(BUILD_OPT) -o $(CWD)/build/mock $(CODE_DIR)/cmd/mock && cd $(CWD)
+
+mock: $(CWD)/build/mock
+	$(CWD)/build/mock
