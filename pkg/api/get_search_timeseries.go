@@ -6,9 +6,9 @@ import (
 )
 
 type getQueryTimeSeriesResponse struct {
-	QueryID    string              `json:"query_id"`
-	MetaData   getQueryLogMetaData `json:"metadata"`
-	TimeSeries map[string][]int    `json:"timeseries"`
+	QueryID    string               `json:"query_id"`
+	MetaData   GetSearchLogMetaData `json:"metadata"`
+	TimeSeries map[string][]int     `json:"timeseries"`
 }
 
 func (x *MinervaHandler) GetSearchTimeSeries(c *gin.Context) (*Response, Error) {

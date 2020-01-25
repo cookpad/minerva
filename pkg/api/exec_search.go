@@ -18,7 +18,7 @@ import (
 
 const hardLimitOfSearchResult = 1000 * 1000 // 1,000,000
 
-type startQueryExecutionResponse struct {
+type ExecSearchResponse struct {
 	QueryID string `json:"query_id"`
 }
 
@@ -80,7 +80,7 @@ func (x *MinervaHandler) ExecSearch(c *gin.Context) (*Response, Error) {
 	}
 	Logger.WithField("response", response).Debug("Sent query")
 
-	return &Response{201, &startQueryExecutionResponse{
+	return &Response{201, &ExecSearchResponse{
 		QueryID: aws.StringValue(response.QueryExecutionId),
 	}}, nil
 }

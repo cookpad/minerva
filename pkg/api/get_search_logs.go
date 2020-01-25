@@ -14,17 +14,17 @@ type logData struct {
 	Log       interface{} `json:"log"`
 }
 
-type getQueryLogMetaData struct {
+type GetSearchLogMetaData struct {
 	getQueryExecutionMetaData
 	Total  int64 `json:"total"`
 	Offset int64 `json:"offset"`
 	Limit  int64 `json:"limit"`
 }
 
-type getQueryLogsResponse struct {
-	QueryID  string              `json:"query_id"`
-	Logs     []*logData          `json:"logs"`
-	MetaData getQueryLogMetaData `json:"metadata"`
+type GetSearchLogsResponse struct {
+	QueryID  string               `json:"query_id"`
+	Logs     []*logData           `json:"logs"`
+	MetaData GetSearchLogMetaData `json:"metadata"`
 }
 
 func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
@@ -40,7 +40,7 @@ func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 		"queryID": queryID,
 	}).Info("Start getSearchLogs")
 
-	resp := getQueryLogsResponse{
+	resp := GetSearchLogsResponse{
 		QueryID: queryID,
 	}
 
