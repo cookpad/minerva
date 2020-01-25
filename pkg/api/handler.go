@@ -1,49 +1,32 @@
 package api
 
-import (
-	"encoding/json"
+import "github.com/gin-gonic/gin"
 
-	"github.com/aws/aws-lambda-go/events"
-)
-
-func respond(code int, msg interface{}) *events.APIGatewayProxyResponse {
-	var body string
-
-	switch msg.(type) {
-	case string:
-		v := struct {
-			Message string `json:"message"`
-		}{Message: msg.(string)}
-		raw, _ := json.Marshal(v)
-		body = string(raw)
-	default:
-		raw, _ := json.Marshal(msg)
-		body = string(raw)
-	}
-
-	return &events.APIGatewayProxyResponse{
-		Body:       body,
-		StatusCode: code,
-	}
+// Response is
+type Response struct {
+	Code    int
+	Message interface{}
 }
 
-func respondError(err apiError) events.APIGatewayProxyResponse {
-	type respMessage struct {
-		Message string `json:"message"`
-	}
-
-	r := respMessage{Message: err.Message()}
-	raw, _ := json.Marshal(r)
-
-	Logger.WithError(err)
-
-	return events.APIGatewayProxyResponse{
-		Body:       string(raw),
-		StatusCode: err.Code(),
-	}
+type Handler interface {
+	ExecSearch(c *gin.Context) (*Response, Error)
+	GetSearchLogs(c *gin.Context) (*Response, Error)
+	GetSearchTimeSeries(c *gin.Context) (*Response, Error)
 }
 
-type requestEntry struct {
-	method   string
-	resource string
+type MinervaHandler struct {
+	DatabaseName     string
+	IndexTableName   string
+	MessageTableName string
+	OutputPath       string
+	Region           string
+}
+
+// Handler is handler interface
+func sendResponse(c *gin.Context, resp *Response, err Error) {
+	if err != nil {
+		c.JSON(err.Code(), gin.H{"message": err.Message()})
+	} else {
+		c.JSON(resp.Code, resp.Message)
+	}
 }

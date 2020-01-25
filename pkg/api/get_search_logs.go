@@ -27,14 +27,14 @@ type getQueryLogsResponse struct {
 	MetaData getQueryLogMetaData `json:"metadata"`
 }
 
-func getSearchLogs(args Arguments, c *gin.Context) (*apiResponse, apiError) {
+func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 
 	queryID := c.Param("query_id")
 	limit := c.Query("limit")
 	offset := c.Query("offset")
 
 	Logger.WithFields(logrus.Fields{
-		"args":    args,
+		"args":    x,
 		"limit":   limit,
 		"offset":  offset,
 		"queryID": queryID,
@@ -44,7 +44,7 @@ func getSearchLogs(args Arguments, c *gin.Context) (*apiResponse, apiError) {
 		QueryID: queryID,
 	}
 
-	status, err := getQueryStatus(args.Region, queryID)
+	status, err := getQueryStatus(x.Region, queryID)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func getSearchLogs(args Arguments, c *gin.Context) (*apiResponse, apiError) {
 
 	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {
 		s3path := status.OutputPath
-		logs, meta, err := loadLogs(args.Region, s3path, limit, offset)
+		logs, meta, err := loadLogs(x.Region, s3path, limit, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -65,5 +65,5 @@ func getSearchLogs(args Arguments, c *gin.Context) (*apiResponse, apiError) {
 	}
 	Logger.WithField("resp", resp).Debug("Done getSearchLogs")
 
-	return &apiResponse{200, &resp}, nil
+	return &Response{200, &resp}, nil
 }

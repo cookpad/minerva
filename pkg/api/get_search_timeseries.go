@@ -11,8 +11,8 @@ type getQueryTimeSeriesResponse struct {
 	TimeSeries map[string][]int    `json:"timeseries"`
 }
 
-func getSearchTimeSeries(args Arguments, c *gin.Context) (*apiResponse, apiError) {
-	Logger.WithField("args", args).Info("Start getSearchLogs")
+func (x *MinervaHandler) GetSearchTimeSeries(c *gin.Context) (*Response, Error) {
+	Logger.WithField("args", x).Info("Start getSearchLogs")
 
 	queryID := c.Param("query_id")
 	tsData := map[string][]int64{}
@@ -22,7 +22,7 @@ func getSearchTimeSeries(args Arguments, c *gin.Context) (*apiResponse, apiError
 		QueryID: queryID,
 	}
 
-	status, err := getQueryStatus(args.Region, queryID)
+	status, err := getQueryStatus(x.Region, queryID)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func getSearchTimeSeries(args Arguments, c *gin.Context) (*apiResponse, apiError
 
 	var tsMax, tsMin *int64
 	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {
-		ch, err := getLogStream(args.Region, status.OutputPath)
+		ch, err := getLogStream(x.Region, status.OutputPath)
 		if err != nil {
 			return nil, wrapSystemError(err, 500, "Fail to create LogStream")
 		}
@@ -79,5 +79,5 @@ func getSearchTimeSeries(args Arguments, c *gin.Context) (*apiResponse, apiError
 	}
 	Logger.WithField("resp", resp).Debug("Done getSearchLogs")
 
-	return &apiResponse{200, &resp}, nil
+	return &Response{200, &resp}, nil
 }

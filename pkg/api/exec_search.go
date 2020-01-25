@@ -35,7 +35,7 @@ type request struct {
 
 const searchRowLimit = 1000 * 1000
 
-func execSearch(args Arguments, c *gin.Context) (*apiResponse, apiError) {
+func (x *MinervaHandler) ExecSearch(c *gin.Context) (*Response, Error) {
 	Logger.WithField("context", *c).Info("Start putQuery")
 
 	var req request
@@ -48,21 +48,21 @@ func execSearch(args Arguments, c *gin.Context) (*apiResponse, apiError) {
 		return nil, wrapUserError(err, 400, "Fail to parse requested body")
 	}
 
-	sql, err := buildSQL(req, args.IndexTableName, args.MessageTableName)
+	sql, err := buildSQL(req, x.IndexTableName, x.MessageTableName)
 	if err != nil {
 		return nil, wrapUserError(err, 400, "Fail to create SQL for Athena")
 	}
 
-	ssn := session.Must(session.NewSession(&aws.Config{Region: &args.Region}))
+	ssn := session.Must(session.NewSession(&aws.Config{Region: &x.Region}))
 	athenaClient := athena.New(ssn)
 
 	input := &athena.StartQueryExecutionInput{
 		QueryExecutionContext: &athena.QueryExecutionContext{
-			Database: aws.String(args.DatabaseName),
+			Database: aws.String(x.DatabaseName),
 		},
 		QueryString: sql,
 		ResultConfiguration: &athena.ResultConfiguration{
-			OutputLocation: &args.OutputPath,
+			OutputLocation: &x.OutputPath,
 		},
 	}
 
@@ -80,7 +80,7 @@ func execSearch(args Arguments, c *gin.Context) (*apiResponse, apiError) {
 	}
 	Logger.WithField("response", response).Debug("Sent query")
 
-	return &apiResponse{201, &startQueryExecutionResponse{
+	return &Response{201, &startQueryExecutionResponse{
 		QueryID: aws.StringValue(response.QueryExecutionId),
 	}}, nil
 }

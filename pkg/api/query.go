@@ -20,7 +20,7 @@ type queryStatus struct {
 	OutputPath  string
 }
 
-func getQueryStatus(region, queryID string) (*queryStatus, apiError) {
+func getQueryStatus(region, queryID string) (*queryStatus, Error) {
 	ssn := session.Must(session.NewSession(&aws.Config{Region: &region}))
 	athenaClient := athena.New(ssn)
 

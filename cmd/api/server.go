@@ -19,7 +19,7 @@ type parameters struct {
 
 func main() {
 	logger.SetLevel(logrus.DebugLevel)
-	var args api.Arguments
+	var args api.MinervaHandler
 	var params parameters
 
 	api.Logger = logger
@@ -84,7 +84,7 @@ func main() {
 
 			r := gin.Default()
 			v1 := r.Group("/api/v1")
-			api.SetupRoute(v1, args)
+			api.SetupRoute(v1, &args)
 
 			bindAddr := fmt.Sprintf("%s:%d", params.addr, params.port)
 			return r.Run(bindAddr)

@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type apiError interface {
+type Error interface {
 	Error() string
 	Code() int
 	Message() string
@@ -36,7 +36,7 @@ func (x *userError) Code() int {
 	return 400
 }
 
-func wrapUserError(err error, code int, msg string) apiError {
+func wrapUserError(err error, code int, msg string) Error {
 	return &userError{
 		baseError: baseError{
 			Err:  errors.Wrap(err, msg),
@@ -45,7 +45,7 @@ func wrapUserError(err error, code int, msg string) apiError {
 	}
 }
 
-func newUserErrorf(code int, msg string, args ...interface{}) apiError {
+func newUserErrorf(code int, msg string, args ...interface{}) Error {
 	return &userError{
 		baseError: baseError{
 			Msg:  fmt.Sprintf(msg, args...),
@@ -64,7 +64,7 @@ func (x *systemError) Code() int {
 	return 500
 }
 
-func wrapSystemError(err error, code int, msg string) apiError {
+func wrapSystemError(err error, code int, msg string) Error {
 	return &systemError{
 		baseError: baseError{
 			Err:  errors.Wrap(err, msg),
@@ -73,7 +73,7 @@ func wrapSystemError(err error, code int, msg string) apiError {
 	}
 }
 
-func wrapSystemErrorf(err error, code int, msg string, args ...interface{}) apiError {
+func wrapSystemErrorf(err error, code int, msg string, args ...interface{}) Error {
 	return &systemError{
 		baseError: baseError{
 			Err:  errors.Wrap(err, fmt.Sprintf(msg, args...)),
@@ -82,7 +82,7 @@ func wrapSystemErrorf(err error, code int, msg string, args ...interface{}) apiE
 	}
 }
 
-func newSystemError(msg string, code int) apiError {
+func newSystemError(msg string, code int) Error {
 	return &systemError{
 		baseError: baseError{
 			Msg:  msg,

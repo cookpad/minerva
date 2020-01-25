@@ -21,7 +21,7 @@ func main() {
 	logger.SetLevel(logrus.InfoLevel)
 	internal.SetLogLevel(os.Getenv("LOG_LEVEL"))
 
-	args := api.Arguments{
+	args := api.MinervaHandler{
 		DatabaseName:     os.Getenv("ATHENA_DB_NAME"),
 		IndexTableName:   os.Getenv("INDEX_TABLE_NAME"),
 		MessageTableName: os.Getenv("MESSAGE_TABLE_NAME"),
@@ -32,7 +32,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	v1 := r.Group("/api/v1")
-	api.SetupRoute(v1, args)
+	api.SetupRoute(v1, &args)
 	ginLambda := ginadapter.New(r)
 
 	lambda.Start(func(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {

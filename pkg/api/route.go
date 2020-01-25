@@ -5,41 +5,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Logger is exported to be used in external package.
 var Logger = logrus.New()
 
-type Arguments struct {
-	DatabaseName     string
-	IndexTableName   string
-	MessageTableName string
-	OutputPath       string
-	Region           string
-}
-
-type apiResponse struct {
-	Code    int
-	Message interface{}
-}
-
-type handler func(args Arguments, c *gin.Context) (*apiResponse, apiError)
-
-func handleRequest(args Arguments, c *gin.Context, hdlr handler) {
-	resp, err := hdlr(args, c)
-	if err != nil {
-		c.JSON(err.Code(), gin.H{"message": err.Message()})
-	} else {
-		c.JSON(resp.Code, resp.Message)
-	}
-}
-
-func SetupRoute(r *gin.RouterGroup, args Arguments) {
+// SetupRoute binds route of gin and API
+func SetupRoute(r *gin.RouterGroup, handler Handler) {
 	r.POST("/search", func(c *gin.Context) {
-		handleRequest(args, c, execSearch)
+		resp, err := handler.ExecSearch(c)
+		sendResponse(c, resp, err)
 	})
-
 	r.GET("/search/:query_id/logs", func(c *gin.Context) {
-		handleRequest(args, c, getSearchLogs)
+		resp, err := handler.GetSearchLogs(c)
+		sendResponse(c, resp, err)
 	})
 	r.GET("/search/:query_id/timeseries", func(c *gin.Context) {
-		handleRequest(args, c, getSearchTimeSeries)
+		resp, err := handler.GetSearchTimeSeries(c)
+		sendResponse(c, resp, err)
 	})
 }

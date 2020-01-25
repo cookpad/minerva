@@ -122,7 +122,7 @@ func getLogStream(region, s3path string) (chan *logQueue, error) {
 	return ch, nil
 }
 
-func loadLogs(region, s3path, limit, offset string) ([]*logData, *getLogsMetaData, apiError) {
+func loadLogs(region, s3path, limit, offset string) ([]*logData, *getLogsMetaData, Error) {
 	var qLimit int64 = 100
 	var qOffset int64 = 0
 
