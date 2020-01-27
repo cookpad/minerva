@@ -22,13 +22,13 @@ func (x *MinervaHandler) GetSearchTimeSeries(c *gin.Context) (*Response, Error) 
 		QueryID: queryID,
 	}
 
-	status, err := getQueryStatus(x.Region, queryID)
+	status, err := getAthenaQueryStatus(x.Region, queryID)
 	if err != nil {
 		return nil, err
 	}
 
 	resp.MetaData.ElapsedSeconds = status.ElapsedTime.Seconds()
-	resp.MetaData.Status = status.Status
+	resp.MetaData.Status = toQueryStatus(status.Status)
 
 	var tsMax, tsMin *int64
 	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {

@@ -44,13 +44,13 @@ func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 		QueryID: queryID,
 	}
 
-	status, err := getQueryStatus(x.Region, queryID)
+	status, err := getAthenaQueryStatus(x.Region, queryID)
 	if err != nil {
 		return nil, err
 	}
 
 	resp.MetaData.ElapsedSeconds = status.ElapsedTime.Seconds()
-	resp.MetaData.Status = status.Status
+	resp.MetaData.Status = toQueryStatus(status.Status)
 
 	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {
 		s3path := status.OutputPath

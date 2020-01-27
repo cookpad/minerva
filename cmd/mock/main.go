@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/m-mizutani/minerva/pkg/api"
@@ -21,6 +23,8 @@ func main() {
 	logger.SetLevel(logrus.DebugLevel)
 	var params parameters
 	handler := api.NewMockHandler()
+
+	rand.Seed(time.Now().Unix())
 
 	api.Logger = logger
 
@@ -41,6 +45,21 @@ func main() {
 				Value:       10080,
 				Usage:       "Bind port number",
 				Destination: &params.port,
+			},
+
+			&cli.IntFlag{
+				Name:        "log-total",
+				Aliases:     []string{"t"},
+				Value:       100,
+				Usage:       "Total number of Log",
+				Destination: &handler.LogTotal,
+			},
+			&cli.IntFlag{
+				Name:        "log-limit",
+				Aliases:     []string{"l"},
+				Value:       10,
+				Usage:       "Limit of Log",
+				Destination: &handler.LogLimit,
 			},
 		},
 

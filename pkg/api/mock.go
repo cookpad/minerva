@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -16,6 +18,8 @@ type queryMeta struct {
 
 type MockHandler struct {
 	mapQueryID map[string]*queryMeta
+	LogTotal   int
+	LogLimit   int
 }
 
 func NewMockHandler() *MockHandler {
@@ -35,15 +39,35 @@ func (x *MockHandler) ExecSearch(c *gin.Context) (*Response, Error) {
 	}}, nil
 }
 
+type logSampleGenerator struct {
+	seq int
+}
+
+func (x *logSampleGenerator) New() *logData {
+	sampleColor := []string{"blue", "orange", "red"}
+	x.seq++
+
+	return &logData{
+		Tag:       "test.1",
+		Timestamp: time.Now().Unix(),
+		Log: map[string]string{
+			"seq":   fmt.Sprintf("%d", x.seq),
+			"steps": fmt.Sprintf("%d", rand.Intn(64)),
+			"port":  fmt.Sprintf("%d", rand.Intn(65655)),
+			"color": sampleColor[rand.Intn(len(sampleColor))],
+		},
+	}
+}
+
 func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 	queryID := c.Param("query_id")
-	limit := c.Query("limit")
-	offset := c.Query("offset")
+	pLimit := c.Query("limit")
+	pOffset := c.Query("offset")
 
 	Logger.WithFields(logrus.Fields{
 		"args":    x,
-		"limit":   limit,
-		"offset":  offset,
+		"limit":   pLimit,
+		"offset":  pOffset,
 		"queryID": queryID,
 	}).Info("Start getSearchLogs")
 
@@ -59,45 +83,55 @@ func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 
 	now := time.Now()
 	resp.MetaData.ElapsedSeconds = float64(now.Sub(q.ExecAt))
-	resp.MetaData.Status = "RUNNING"
+	resp.MetaData.Status = statusRunning
 
-	var qOffset int64 = 0
-	if offset != "" {
-		if v, err := strconv.ParseInt(offset, 10, 64); err == nil {
-			qOffset = v
+	var offset int64 = 0
+	if pOffset != "" {
+		if v, err := strconv.ParseInt(pOffset, 10, 64); err == nil {
+			offset = v
 		} else {
 			return nil, wrapUserError(err, 400, "Fail to parse 'offset'")
 		}
 	}
+	var limit int64 = int64(x.LogLimit)
+	if pLimit != "" {
+		if v, err := strconv.ParseInt(pLimit, 10, 64); err == nil {
+			limit = v
+		} else {
+			return nil, wrapUserError(err, 400, "Fail to parse 'limit'")
+		}
+	}
+	Logger.Infof("offset=%d, limit=%d", offset, limit)
 
 	if resp.MetaData.ElapsedSeconds >= 3 {
-		logs := []*logData{
-			{
-				Tag:       "test.1",
-				Timestamp: time.Now().Unix(),
-				Log: map[string]string{
-					"abc": "123",
-				},
-			},
-			{
-				Tag:       "test.2",
-				Timestamp: time.Now().Unix(),
-				Log: map[string]string{
-					"deb": "345",
-				},
-			},
+		resp.MetaData.Status = statusSuccess
+		gen := logSampleGenerator{}
+
+		var logs []*logData
+		for i := 0; i < x.LogTotal; i++ {
+			logs = append(logs, gen.New())
 		}
 
 		meta := getLogsMetaData{
-			Total:  10,
-			Offset: qOffset,
-			Limit:  int64(len(logs)),
+			Total:  int64(len(logs)),
+			Offset: offset,
+			Limit:  limit,
 		}
 
-		resp.Logs = logs
+		bp := offset
+		ep := offset + limit
+		if bp > meta.Total {
+			bp = meta.Total
+		}
+		if ep > meta.Total {
+			ep = meta.Total
+		}
+
+		resp.Logs = logs[bp:ep]
 		resp.MetaData.Total = meta.Total
 		resp.MetaData.Offset = meta.Offset
 		resp.MetaData.Limit = meta.Limit
+		Logger.WithField("len(logs)", len(resp.Logs)).WithField("meta", meta).Info("response")
 	}
 
 	return &Response{200, &resp}, nil
