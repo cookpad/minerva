@@ -147,7 +147,7 @@ SELECT indices.object_id, indices.seq, indices.tag
 FROM indices
 WHERE %s
 GROUP BY indices.object_id, indices.seq, indices.tag, indices.timestamp
-HAVING count(distinct(field, term)) = %d
+HAVING count(distinct(term)) = %d
 LIMIT %d
 )
 SELECT tindex.tag,
