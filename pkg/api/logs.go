@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/itchyny/gojq"
 )
 
 type getLogsMetaData struct {
@@ -122,7 +123,7 @@ func getLogStream(region, s3path string) (chan *logQueue, error) {
 	return ch, nil
 }
 
-func loadLogs(region, s3path, limit, offset string) ([]*logData, *getLogsMetaData, Error) {
+func loadLogs(region, s3path, limit, offset, filter string) ([]*logData, *getLogsMetaData, Error) {
 	var qLimit int64 = 100
 	var qOffset int64 = 0
 
@@ -140,6 +141,14 @@ func loadLogs(region, s3path, limit, offset string) ([]*logData, *getLogsMetaDat
 		} else {
 			return nil, nil, wrapUserError(err, 400, "Fail to parse 'offset'")
 		}
+	}
+
+	if filter != ""{
+		jq, err := gojq.Parse(filter)
+		if err != nil {
+			return nil, nil, wrapUserError(err, 400, "Fail to parse filter (invalid jq query)")
+		}
+		Logger.WithField("jq", jq).Info("Compiled jq")
 	}
 
 	Logger.WithFields(logrus.Fields{

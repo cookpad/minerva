@@ -32,11 +32,13 @@ func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 	queryID := c.Param("query_id")
 	limit := c.Query("limit")
 	offset := c.Query("offset")
+	filter := c.Query("filter")
 
 	Logger.WithFields(logrus.Fields{
 		"args":    x,
 		"limit":   limit,
 		"offset":  offset,
+		"filter": filter,
 		"queryID": queryID,
 	}).Info("Start getSearchLogs")
 
@@ -54,7 +56,7 @@ func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 
 	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {
 		s3path := status.OutputPath
-		logs, meta, err := loadLogs(x.Region, s3path, limit, offset)
+		logs, meta, err := loadLogs(x.Region, s3path, limit, offset, filter)
 		if err != nil {
 			return nil, err
 		}

@@ -63,12 +63,14 @@ func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 	queryID := c.Param("query_id")
 	pLimit := c.Query("limit")
 	pOffset := c.Query("offset")
+	pFilter := c.Query("filter")
 
 	Logger.WithFields(logrus.Fields{
 		"args":    x,
 		"limit":   pLimit,
 		"offset":  pOffset,
 		"queryID": queryID,
+		"filter":  pFilter,
 	}).Info("Start getSearchLogs")
 
 	resp := GetSearchLogsResponse{
