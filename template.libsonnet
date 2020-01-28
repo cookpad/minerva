@@ -578,8 +578,8 @@
           CodeUri: 'build',
           Handler: 'apiHandler',
           Runtime: 'go1.x',
-          Timeout: 30,
-          MemorySize: 128,
+          Timeout: 120,
+          MemorySize: 2048,
           Role: LambdaRole,
           Environment: {
             Variables: {
