@@ -11,9 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/itchyny/gojq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/itchyny/gojq"
 )
 
 type getLogsMetaData struct {
@@ -44,30 +44,95 @@ func recordToLogData(record []string) (*logData, error) {
 		Timestamp: ts,
 		Log:       values,
 	}, nil
-
 }
 
-func extractLogs(ch chan *logQueue, offset, limit int64) ([]*logData, int64, error) {
+type logFilter struct {
+	Offset int64
+	Limit  int64
+	Query  *gojq.Query
+	Tags   map[string]bool
+	Begin  *int64
+	End    *int64
+}
+
+type logDataSet struct {
+	Logs           []*logData
+	Tags           []string
+	Total          int64
+	SubTotal       int64
+	FirstTimestamp int64
+	LastTimestamp  int64
+}
+
+type tagSet struct {
+	tags map[string]struct{}
+}
+
+func newTagSet() *tagSet         { return &tagSet{tags: make(map[string]struct{})} }
+func (x *tagSet) add(tag string) { x.tags[tag] = struct{}{} }
+func (x *tagSet) toList() []string {
+	var tagList []string
+	for k := range x.tags {
+		tagList = append(tagList, k)
+	}
+	return tagList
+}
+
+func extractLogs(ch chan *logQueue, filter logFilter) (*logDataSet, error) {
 	var logs []*logData
-	var total int64
+	var total, seq int64
+	tags := newTagSet()
 
 	for q := range ch {
 		if q.Error != nil {
-			return nil, 0, q.Error
+			return nil, q.Error
 		}
 		total++
 
-		if offset <= q.Seq && q.Seq < offset+limit {
-			log, err := recordToLogData(q.Record)
-			if err != nil {
-				return nil, 0, err
-			}
+		log, err := recordToLogData(q.Record)
+		if err != nil {
+			return nil, err
+		}
 
-			logs = append(logs, log)
+		tags.add(log.Tag)
+
+		if filter.Query != nil {
+			iter := filter.Query.Run(log.Log)
+			for {
+				v, ok := iter.Next()
+				if !ok {
+					break
+				}
+				if err, ok := v.(error); ok {
+					return nil, err
+				}
+
+				if v != nil {
+					if filter.Offset <= seq && seq < filter.Offset+filter.Limit {
+						if s, ok := v.(string); ok {
+							v = map[string]string{"": s}
+						}
+						logs = append(logs, &logData{Tag: log.Tag, Timestamp: log.Timestamp, Log: v})
+					}
+					seq++
+				}
+			}
+		} else {
+			if filter.Offset <= seq && seq < filter.Offset+filter.Limit {
+				logs = append(logs, log)
+			}
+			seq++
 		}
 	}
 
-	return logs, total, nil
+	dataSet := &logDataSet{
+		Logs:     logs,
+		Total:    total,
+		SubTotal: seq,
+		Tags:     tags.toList(),
+	}
+
+	return dataSet, nil
 }
 
 func getLogStream(region, s3path string) (chan *logQueue, error) {
@@ -123,13 +188,15 @@ func getLogStream(region, s3path string) (chan *logQueue, error) {
 	return ch, nil
 }
 
-func loadLogs(region, s3path, limit, offset, filter string) ([]*logData, *getLogsMetaData, Error) {
-	var qLimit int64 = 100
-	var qOffset int64 = 0
+func loadLogs(region, s3path, limit, offset, query string) ([]*logData, *getLogsMetaData, Error) {
+	filter := logFilter{
+		Limit:  50,
+		Offset: 0,
+	}
 
 	if limit != "" {
 		if v, err := strconv.ParseInt(limit, 10, 64); err == nil {
-			qLimit = v
+			filter.Limit = v
 		} else {
 			return nil, nil, wrapUserError(err, 400, "Fail to parse 'limit'")
 		}
@@ -137,28 +204,27 @@ func loadLogs(region, s3path, limit, offset, filter string) ([]*logData, *getLog
 
 	if offset != "" {
 		if v, err := strconv.ParseInt(offset, 10, 64); err == nil {
-			qOffset = v
+			filter.Offset = v
 		} else {
 			return nil, nil, wrapUserError(err, 400, "Fail to parse 'offset'")
 		}
 	}
 
-	if filter != ""{
-		jq, err := gojq.Parse(filter)
-		if err != nil {
-			return nil, nil, wrapUserError(err, 400, "Fail to parse filter (invalid jq query)")
+	if query != "" {
+		if q, err := gojq.Parse(query); err == nil {
+			filter.Query = q
+		} else {
+			return nil, nil, wrapUserError(err, 400, "Fail to parse query (invalid jq query)")
 		}
-		Logger.WithField("jq", jq).Info("Compiled jq")
 	}
 
 	Logger.WithFields(logrus.Fields{
 		"region": region,
 		"s3path": s3path,
-		"limit":  qLimit,
-		"offset": qOffset,
+		"filter": filter,
 	}).Debug("Download s3 object")
 
-	if qLimit > 10000 {
+	if filter.Limit > 10000 {
 		return nil, nil, newUserErrorf(400, "limit number is too big, must be under 10000")
 	}
 
@@ -167,10 +233,11 @@ func loadLogs(region, s3path, limit, offset, filter string) ([]*logData, *getLog
 		return nil, nil, wrapSystemErrorf(err, 500, "Fail to get log stream: %s", s3path)
 	}
 
-	logs, total, err := extractLogs(ch, qOffset, qLimit)
+	logSet, err := extractLogs(ch, filter)
 	if err != nil {
 		return nil, nil, wrapSystemErrorf(err, 500, "Fail to extract log data: %s", s3path)
 	}
 
-	return logs, &getLogsMetaData{Total: total, Offset: qOffset, Limit: qLimit}, nil
+	meta := &getLogsMetaData{Total: logSet.Total, Offset: filter.Offset, Limit: filter.Limit}
+	return logSet.Logs, meta, nil
 }

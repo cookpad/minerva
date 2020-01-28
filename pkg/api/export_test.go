@@ -5,6 +5,22 @@ var (
 	NewRequest = newRequest
 )
 
+type LogFilter logFilter
+type LogDataSet logDataSet
+type LogQueue logQueue
+
+func ExtractLogs(ch chan *LogQueue, filter LogFilter) (*LogDataSet, error) {
+	pipe := make(chan *logQueue)
+	go func() {
+		defer close(pipe)
+		for q := range ch {
+			pipe <- (*logQueue)(q)
+		}
+	}()
+	v, err := extractLogs(pipe, logFilter(filter))
+	return (*LogDataSet)(v), err
+}
+
 func newRequest(terms []string, start, end string) request {
 	var querySet []query
 	for _, t := range terms {
