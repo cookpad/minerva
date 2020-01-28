@@ -140,7 +140,6 @@ func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 	resp.MetaData.Status = statusRunning
 
 	if resp.MetaData.ElapsedSeconds >= 3 {
-		resp.MetaData.Status = statusSuccess
 		filter, apiErr := buildLogFilter(c)
 		if apiErr != nil {
 			return nil, apiErr
@@ -154,8 +153,11 @@ func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 
 		resp.Logs = logSet.Logs
 		resp.MetaData.Total = logSet.Total
+		resp.MetaData.SubTotal = logSet.SubTotal
+		resp.MetaData.Tags = logSet.Tags
 		resp.MetaData.Offset = filter.Offset
 		resp.MetaData.Limit = filter.Limit
+		resp.MetaData.Status = statusSuccess
 		Logger.WithField("len(logs)", len(resp.Logs)).WithField("meta", resp.MetaData).Info("response")
 	}
 

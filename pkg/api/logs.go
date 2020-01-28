@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -122,6 +123,8 @@ type logDataSet struct {
 	Tags           []string
 	Total          int64
 	SubTotal       int64
+	Offset         int64
+	Limit          int64
 	FirstTimestamp int64
 	LastTimestamp  int64
 }
@@ -185,8 +188,9 @@ func extractLogs(ch chan *logQueue, filter logFilter) (*logDataSet, error) {
 
 				if v != nil {
 					if filter.Offset <= seq && seq < filter.Offset+filter.Limit {
-						if s, ok := v.(string); ok {
-							v = map[string]string{"": s}
+						// Need to keep map[string]interface{} format for view.
+						if reflect.ValueOf(v).Kind() != reflect.Map {
+							v = map[string]string{"": fmt.Sprintf("%v", v)}
 						}
 						logs = append(logs, &logData{Tag: log.Tag, Timestamp: log.Timestamp, Log: v})
 					}
@@ -207,6 +211,7 @@ func extractLogs(ch chan *logQueue, filter logFilter) (*logDataSet, error) {
 		SubTotal: seq,
 		Tags:     tags.toList(),
 	}
+	Logger.WithField("dataSet", dataSet).Info("retrieved")
 
 	return dataSet, nil
 }
@@ -264,10 +269,10 @@ func getLogStream(region, s3path string) (chan *logQueue, error) {
 	return ch, nil
 }
 
-func loadLogs(region, s3path string, c *gin.Context) ([]*logData, *getLogsMetaData, Error) {
+func loadLogs(region, s3path string, c *gin.Context) (*logDataSet, Error) {
 	filter, apiErr := buildLogFilter(c)
 	if apiErr != nil {
-		return nil, nil, apiErr
+		return nil, apiErr
 	}
 
 	Logger.WithFields(logrus.Fields{
@@ -277,19 +282,18 @@ func loadLogs(region, s3path string, c *gin.Context) ([]*logData, *getLogsMetaDa
 	}).Debug("Download s3 object")
 
 	if filter.Limit > 10000 {
-		return nil, nil, newUserErrorf(400, "limit number is too big, must be under 10000")
+		return nil, newUserErrorf(400, "limit number is too big, must be under 10000")
 	}
 
 	ch, err := getLogStream(region, s3path)
 	if err != nil {
-		return nil, nil, wrapSystemErrorf(err, 500, "Fail to get log stream: %s", s3path)
+		return nil, wrapSystemErrorf(err, 500, "Fail to get log stream: %s", s3path)
 	}
 
 	logSet, err := extractLogs(ch, *filter)
 	if err != nil {
-		return nil, nil, wrapSystemErrorf(err, 500, "Fail to extract log data: %s", s3path)
+		return nil, wrapSystemErrorf(err, 500, "Fail to extract log data: %s", s3path)
 	}
 
-	meta := &getLogsMetaData{Total: logSet.Total, Offset: filter.Offset, Limit: filter.Limit}
-	return logSet.Logs, meta, nil
+	return logSet, nil
 }

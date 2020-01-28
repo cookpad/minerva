@@ -1,6 +1,9 @@
 package api
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+)
 
 // Response is
 type Response struct {
@@ -25,6 +28,11 @@ type MinervaHandler struct {
 // Handler is handler interface
 func sendResponse(c *gin.Context, resp *Response, err Error) {
 	if err != nil {
+		Logger.WithFields(logrus.Fields{
+			"error":  err,
+			"params": c.Params,
+			"url":    c.Request.URL,
+		}).Error("Request faield")
 		c.JSON(err.Code(), gin.H{"message": err.Message()})
 	} else {
 		c.JSON(resp.Code, resp.Message)

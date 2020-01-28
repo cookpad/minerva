@@ -16,9 +16,11 @@ type logData struct {
 
 type GetSearchLogMetaData struct {
 	getQueryExecutionMetaData
-	Total  int64 `json:"total"`
-	Offset int64 `json:"offset"`
-	Limit  int64 `json:"limit"`
+	Total    int64    `json:"total"`
+	SubTotal int64    `json:"sub_total"`
+	Offset   int64    `json:"offset"`
+	Limit    int64    `json:"limit"`
+	Tags     []string `json:"tags"`
 }
 
 type GetSearchLogsResponse struct {
@@ -51,14 +53,16 @@ func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {
 		s3path := status.OutputPath
 
-		logs, meta, err := loadLogs(x.Region, s3path, c)
+		logSet, err := loadLogs(x.Region, s3path, c)
 		if err != nil {
 			return nil, err
 		}
-		resp.Logs = logs
-		resp.MetaData.Total = meta.Total
-		resp.MetaData.Offset = meta.Offset
-		resp.MetaData.Limit = meta.Limit
+		resp.Logs = logSet.Logs
+		resp.MetaData.Total = logSet.Total
+		resp.MetaData.Offset = logSet.Offset
+		resp.MetaData.Limit = logSet.Limit
+		resp.MetaData.SubTotal = logSet.SubTotal
+		resp.MetaData.Tags = logSet.Tags
 	}
 	Logger.WithField("resp", resp).Debug("Done getSearchLogs")
 
