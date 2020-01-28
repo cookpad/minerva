@@ -1,14 +1,13 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 type queryMeta struct {
@@ -59,19 +58,72 @@ func (x *logSampleGenerator) New() *logData {
 	}
 }
 
+type actionLog struct {
+	Name   string `json:"name"`
+	Target string `json:"target"`
+}
+
+func mustToJSON(v interface{}) string {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		Logger.Fatal("Fail to marshal JSON:", err)
+	}
+	return string(raw)
+}
+
+func newLogStream(max int) chan *logQueue {
+	logs := [][]string{
+		[]string{"test.user", "1580000000", mustToJSON(map[string]interface{}{
+			"name":  "Ao",
+			"color": "blue",
+			"rank":  0,
+		})},
+		[]string{"test.user", "1580000002", mustToJSON(map[string]interface{}{
+			"name":  "Tou",
+			"color": "orange",
+			"rank":  1,
+		})},
+		[]string{"test.user", "1580000004", mustToJSON(map[string]interface{}{
+			"name": "Alice",
+			"rank": 100,
+		})},
+		[]string{"test.user", "1580000005", mustToJSON(map[string]interface{}{
+			"name": "Barth",
+			"rank": 1,
+		})},
+		[]string{"test.user", "1580000009", mustToJSON(map[string]interface{}{
+			"name": "Chris",
+			"rank": 200,
+		})},
+		[]string{"test.user", "1580000010", mustToJSON(map[string]interface{}{
+			"name": "Dymos",
+			"rank": 300,
+		})},
+		[]string{"test.action", "1580000012", mustToJSON(actionLog{
+			Name:   "attack",
+			Target: "rock",
+		})},
+		[]string{"test.action", "1580000012", mustToJSON(actionLog{
+			Name:   "Ao",
+			Target: "paper",
+		})},
+	}
+
+	ch := make(chan *logQueue, 1)
+	go func() {
+		defer close(ch)
+		for i := 0; i < max; i++ {
+			ch <- &logQueue{
+				Seq:    int64(i),
+				Record: logs[rand.Intn(len(logs))],
+			}
+		}
+	}()
+	return ch
+}
+
 func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 	queryID := c.Param("query_id")
-	pLimit := c.Query("limit")
-	pOffset := c.Query("offset")
-	pFilter := c.Query("filter")
-
-	Logger.WithFields(logrus.Fields{
-		"args":    x,
-		"limit":   pLimit,
-		"offset":  pOffset,
-		"queryID": queryID,
-		"filter":  pFilter,
-	}).Info("Start getSearchLogs")
 
 	resp := GetSearchLogsResponse{
 		QueryID: queryID,
@@ -87,53 +139,24 @@ func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 	resp.MetaData.ElapsedSeconds = float64(now.Sub(q.ExecAt))
 	resp.MetaData.Status = statusRunning
 
-	var offset int64 = 0
-	if pOffset != "" {
-		if v, err := strconv.ParseInt(pOffset, 10, 64); err == nil {
-			offset = v
-		} else {
-			return nil, wrapUserError(err, 400, "Fail to parse 'offset'")
-		}
-	}
-	var limit int64 = int64(x.LogLimit)
-	if pLimit != "" {
-		if v, err := strconv.ParseInt(pLimit, 10, 64); err == nil {
-			limit = v
-		} else {
-			return nil, wrapUserError(err, 400, "Fail to parse 'limit'")
-		}
-	}
-	Logger.Infof("offset=%d, limit=%d", offset, limit)
-
 	if resp.MetaData.ElapsedSeconds >= 3 {
 		resp.MetaData.Status = statusSuccess
-		gen := logSampleGenerator{}
+		filter, apiErr := buildLogFilter(c)
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		Logger.WithField("filter", filter).Debug("Built filter")
 
-		var logs []*logData
-		for i := 0; i < x.LogTotal; i++ {
-			logs = append(logs, gen.New())
+		logSet, err := extractLogs(newLogStream(x.LogTotal), *filter)
+		if err != nil {
+			return nil, wrapSystemError(err, 500, "Fail to load logs")
 		}
 
-		meta := getLogsMetaData{
-			Total:  int64(len(logs)),
-			Offset: offset,
-			Limit:  limit,
-		}
-
-		bp := offset
-		ep := offset + limit
-		if bp > meta.Total {
-			bp = meta.Total
-		}
-		if ep > meta.Total {
-			ep = meta.Total
-		}
-
-		resp.Logs = logs[bp:ep]
-		resp.MetaData.Total = meta.Total
-		resp.MetaData.Offset = meta.Offset
-		resp.MetaData.Limit = meta.Limit
-		Logger.WithField("len(logs)", len(resp.Logs)).WithField("meta", meta).Info("response")
+		resp.Logs = logSet.Logs
+		resp.MetaData.Total = logSet.Total
+		resp.MetaData.Offset = filter.Offset
+		resp.MetaData.Limit = filter.Limit
+		Logger.WithField("len(logs)", len(resp.Logs)).WithField("meta", resp.MetaData).Info("response")
 	}
 
 	return &Response{200, &resp}, nil

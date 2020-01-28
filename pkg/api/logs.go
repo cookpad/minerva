@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/gin-gonic/gin"
 	"github.com/itchyny/gojq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -55,6 +56,67 @@ type logFilter struct {
 	End    *int64
 }
 
+type queryString interface {
+	Query(string) string
+}
+
+func buildLogFilter(qs queryString) (*logFilter, Error) {
+	filter := &logFilter{
+		Limit:  50,
+		Offset: 0,
+	}
+
+	if v := qs.Query("limit"); v != "" {
+		if d, err := strconv.ParseInt(v, 10, 64); err == nil {
+			filter.Limit = d
+		} else {
+			return nil, wrapUserError(err, 400, "Fail to parse 'limit'")
+		}
+	}
+
+	if v := qs.Query("offset"); v != "" {
+		if d, err := strconv.ParseInt(v, 10, 64); err == nil {
+			filter.Offset = d
+		} else {
+			return nil, wrapUserError(err, 400, "Fail to parse 'offset'")
+		}
+	}
+
+	if v := qs.Query("query"); v != "" {
+		if q, err := gojq.Parse(v); err == nil {
+			filter.Query = q
+		} else {
+			return nil, wrapUserError(err, 400, "Fail to parse query (invalid jq query)")
+		}
+	}
+
+	if v := qs.Query("tags"); v != "" {
+		filter.Tags = map[string]bool{}
+
+		for _, tag := range strings.Split(v, ",") {
+			filter.Tags[tag] = true
+		}
+	}
+
+	if v := qs.Query("begin"); v != "" {
+		if ts, err := strconv.ParseInt(v, 10, 64); err == nil {
+			filter.Begin = &ts
+		} else {
+			return nil, wrapUserError(err, 400, "Fail to parse 'begin', must be integer")
+		}
+	}
+
+	if v := qs.Query("end"); v != "" {
+		if ts, err := strconv.ParseInt(v, 10, 64); err == nil {
+			filter.End = &ts
+		} else {
+			return nil, wrapUserError(err, 400, "Fail to parse 'end', must be integer")
+		}
+	}
+
+	return filter, nil
+}
+
 type logDataSet struct {
 	Logs           []*logData
 	Tags           []string
@@ -94,7 +156,21 @@ func extractLogs(ch chan *logQueue, filter logFilter) (*logDataSet, error) {
 			return nil, err
 		}
 
+		// tags has all set of tag in whole log data.
 		tags.add(log.Tag)
+
+		if filter.Tags != nil {
+			if _, ok := filter.Tags[log.Tag]; !ok {
+				continue
+			}
+		}
+
+		if filter.Begin != nil && log.Timestamp < *filter.Begin {
+			continue
+		}
+		if filter.End != nil && *filter.End < log.Timestamp {
+			continue
+		}
 
 		if filter.Query != nil {
 			iter := filter.Query.Run(log.Log)
@@ -188,34 +264,10 @@ func getLogStream(region, s3path string) (chan *logQueue, error) {
 	return ch, nil
 }
 
-func loadLogs(region, s3path, limit, offset, query string) ([]*logData, *getLogsMetaData, Error) {
-	filter := logFilter{
-		Limit:  50,
-		Offset: 0,
-	}
-
-	if limit != "" {
-		if v, err := strconv.ParseInt(limit, 10, 64); err == nil {
-			filter.Limit = v
-		} else {
-			return nil, nil, wrapUserError(err, 400, "Fail to parse 'limit'")
-		}
-	}
-
-	if offset != "" {
-		if v, err := strconv.ParseInt(offset, 10, 64); err == nil {
-			filter.Offset = v
-		} else {
-			return nil, nil, wrapUserError(err, 400, "Fail to parse 'offset'")
-		}
-	}
-
-	if query != "" {
-		if q, err := gojq.Parse(query); err == nil {
-			filter.Query = q
-		} else {
-			return nil, nil, wrapUserError(err, 400, "Fail to parse query (invalid jq query)")
-		}
+func loadLogs(region, s3path string, c *gin.Context) ([]*logData, *getLogsMetaData, Error) {
+	filter, apiErr := buildLogFilter(c)
+	if apiErr != nil {
+		return nil, nil, apiErr
 	}
 
 	Logger.WithFields(logrus.Fields{
@@ -233,7 +285,7 @@ func loadLogs(region, s3path, limit, offset, query string) ([]*logData, *getLogs
 		return nil, nil, wrapSystemErrorf(err, 500, "Fail to get log stream: %s", s3path)
 	}
 
-	logSet, err := extractLogs(ch, filter)
+	logSet, err := extractLogs(ch, *filter)
 	if err != nil {
 		return nil, nil, wrapSystemErrorf(err, 500, "Fail to extract log data: %s", s3path)
 	}
