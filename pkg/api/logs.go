@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -140,6 +141,7 @@ func (x *tagSet) toList() []string {
 	for k := range x.tags {
 		tagList = append(tagList, k)
 	}
+	sort.Slice(tagList, func(i, j int) bool { return tagList[i] < tagList[j] })
 	return tagList
 }
 
