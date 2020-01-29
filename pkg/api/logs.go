@@ -115,6 +115,7 @@ func buildLogFilter(qs queryString) (*logFilter, Error) {
 		}
 	}
 
+	Logger.WithField("filter", filter).Debug("Built filter")
 	return filter, nil
 }
 
@@ -123,10 +124,9 @@ type logDataSet struct {
 	Tags           []string
 	Total          int64
 	SubTotal       int64
-	Offset         int64
-	Limit          int64
 	FirstTimestamp int64
 	LastTimestamp  int64
+	Filter         logFilter
 }
 
 type tagSet struct {
@@ -210,6 +210,7 @@ func extractLogs(ch chan *logQueue, filter logFilter) (*logDataSet, error) {
 		Total:    total,
 		SubTotal: seq,
 		Tags:     tags.toList(),
+		Filter:   filter,
 	}
 	Logger.WithField("dataSet", dataSet).Info("retrieved")
 

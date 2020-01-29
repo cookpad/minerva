@@ -30,7 +30,6 @@ type GetSearchLogsResponse struct {
 }
 
 func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
-
 	queryID := c.Param("query_id")
 
 	Logger.WithFields(logrus.Fields{
@@ -59,8 +58,8 @@ func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 		}
 		resp.Logs = logSet.Logs
 		resp.MetaData.Total = logSet.Total
-		resp.MetaData.Offset = logSet.Offset
-		resp.MetaData.Limit = logSet.Limit
+		resp.MetaData.Offset = logSet.Filter.Offset
+		resp.MetaData.Limit = logSet.Filter.Limit
 		resp.MetaData.SubTotal = logSet.SubTotal
 		resp.MetaData.Tags = logSet.Tags
 	}
