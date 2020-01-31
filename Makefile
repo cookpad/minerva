@@ -1,5 +1,5 @@
-DEPLOY_CONFIG ?= deploy.jsonnet
 STACK_CONFIG ?= stack.jsonnet
+SAM_CONFIG ?= sam.jsonnet
 
 CODE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 CWD := ${CURDIR}
@@ -11,7 +11,7 @@ SAM_FILE := sam.yml
 BASE_FILE := $(CODE_DIR)/template.libsonnet
 OUTPUT_FILE := $(CWD)/output.json
 
-STACK_NAME := $(shell jsonnet $(DEPLOY_CONFIG) | jq .StackName)
+STACK_NAME := $(shell jsonnet $(STACK_CONFIG) | jq .StackName)
 BUILD_OPT :=
 
 ifdef TAGS
@@ -44,33 +44,33 @@ $(CWD)/build/apiHandler: $(CODE_DIR)/lambda/apiHandler/*.go $(SRC)
 $(CWD)/build/errorHandler: $(CODE_DIR)/lambda/errorHandler/*.go $(SRC)
 	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(CWD)/build/errorHandler $(CODE_DIR)/lambda/errorHandler && cd $(CWD)
 
-$(TEMPLATE_FILE): $(STACK_CONFIG) $(BASE_FILE)
-	jsonnet -J $(CODE_DIR) $(STACK_CONFIG) -o $(TEMPLATE_FILE)
+$(TEMPLATE_FILE): $(SAM_CONFIG) $(BASE_FILE)
+	jsonnet -J $(CODE_DIR) $(SAM_CONFIG) -o $(TEMPLATE_FILE)
 
-$(SAM_FILE): $(TEMPLATE_FILE) $(BINPATH) $(DEPLOY_CONFIG)
+$(SAM_FILE): $(TEMPLATE_FILE) $(BINPATH) $(STACK_CONFIG)
 	aws cloudformation package \
-		--region $(shell jsonnet $(DEPLOY_CONFIG) | jq .Region) \
+		--region $(shell jsonnet $(STACK_CONFIG) | jq .Region) \
 		--template-file $(TEMPLATE_FILE) \
-		--s3-bucket $(shell jsonnet $(DEPLOY_CONFIG) | jq .CodeS3Bucket) \
-		--s3-prefix $(shell jsonnet $(DEPLOY_CONFIG) | jq .CodeS3Prefix) \
+		--s3-bucket $(shell jsonnet $(STACK_CONFIG) | jq .CodeS3Bucket) \
+		--s3-prefix $(shell jsonnet $(STACK_CONFIG) | jq .CodeS3Prefix) \
 		--output-template-file $(SAM_FILE)
 
 $(OUTPUT_FILE): $(SAM_FILE)
 	aws cloudformation deploy \
-		--region $(shell jsonnet $(DEPLOY_CONFIG) | jq .Region) \
+		--region $(shell jsonnet $(STACK_CONFIG) | jq .Region) \
 		--template-file $(SAM_FILE) \
 		--stack-name $(STACK_NAME) \
 		--capabilities CAPABILITY_IAM \
 		$(TAGOPT) \
 		--no-fail-on-empty-changeset
 	aws cloudformation describe-stack-resources \
-		--region $(shell jsonnet $(DEPLOY_CONFIG) | jq .Region) \
+		--region $(shell jsonnet $(STACK_CONFIG) | jq .Region) \
 		--stack-name $(STACK_NAME) > $(OUTPUT_FILE)
 
 
 delete:
 	aws cloudformation delete-stack \
-		--region $(shell jsonnet $(DEPLOY_CONFIG) | jq .Region) \
+		--region $(shell jsonnet $(STACK_CONFIG) | jq .Region) \
 		--stack-name $(STACK_NAME)
 	rm -f $(OUTPUT_FILE)
 
