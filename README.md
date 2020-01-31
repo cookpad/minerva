@@ -1,9 +1,24 @@
-# minerva [![Build Status](https://travis-ci.org/m-mizutani/minerva.svg?branch=master)](https://travis-ci.org/m-mizutani/minerva)  [![Report card](https://goreportcard.com/badge/github.com/m-mizutani/minerva)](https://goreportcard.com/report/github.com/m-mizutani/minerva) [![GoDoc](https://godoc.org/github.com/m-mizutani/minerva?status.svg)](https://godoc.org/github.com/m-mizutani/minerva)
+# minerva [![Build Status](https://travis-ci.org/m-mizutani/minerva.svg?branch=master)](https://travis-ci.org/m-mizutani/minerva)  [![Report card](https://goreportcard.com/badge/github.com/m-mizutani/minerva)](https://goreportcard.com/report/github.com/m-mizutani/minerva)
 
 Serverless Log Search Architecture for Security Monitoring based on Amazon Athena.
 
 ## Overview
 
+In security monitoring, a security engineer is required to analyze security alert from security devices to determine risk of the alert. When analyzing a security alert, various logs from system, application, middleware, network and 3rd party services strongly help a security engineer to understand what is happened around the alert.
+There are a lot of existing useful log search engine products and services. However these products and services are expensive due to amount of log traffic size.
+
+Minerva is designed focusing on cost effectiveness by leveraging AWS managed serviecs. Target use case is log search for several security alerts per day.
+
+- Advantages
+  - **Low running cost**: (e.g. 7.5 TB logs and several searches per day require about only $300/mo as total)
+  - **Low operational cost**: All components of Minerva are managed services and require minimum operation. Additionally preprocessing Lambda function can smoothly scale in/out.
+- Disadvantage
+  - Cost increases accourding to number of search times. Then Minerva is not appropriate for continuous searching operation (e.g. Threat hunting).
+  - Amazon Athena has latency in search operation about from 10 seconds to several minutes. This latency is bigger than other search engines (e.g. Elasticsearch).
+
+Minerva provides only API to saerch logs. See [Strix](https://github.com/m-mizutani/strix) as web based user interface for Minerva. A following figure shows abstracted architecture of Minerva and Strix.
+
+![rough arch](https://user-images.githubusercontent.com/605953/73524333-3bd35700-4450-11ea-92de-ac05d077dafd.png)
 
 On a side note, Minerva is the Roman goddess that is equated with Athena.
 
@@ -114,7 +129,7 @@ func main() {
 }
 ```
 
-`indexer.go` is written based on [rlogs](github.com/m-mizutani/rlogs). Please see the repository for more detail.
+`indexer.go` is written based on [rlogs](https://github.com/m-mizutani/rlogs). Please see the repository for more detail.
 
 ### Deployment
 
