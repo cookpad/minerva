@@ -50,25 +50,27 @@ func recordToLogData(record []string) (*logData, error) {
 }
 
 type logFilter struct {
-	Offset int64
-	Limit  int64
-	Query  *gojq.Query
-	Tags   map[string]bool
-	Begin  *int64
-	End    *int64
+	Offset        int64
+	Limit         int64
+	Query         *gojq.Query
+	TargetTags    map[string]bool
+	Begin         *int64
+	End           *int64
+	PermittedTags map[string]bool
 }
 
-type queryString interface {
+type filterParams interface {
 	Query(string) string
+	GetHeader(string) string
 }
 
-func buildLogFilter(qs queryString) (*logFilter, Error) {
+func buildLogFilter(fp filterParams) (*logFilter, Error) {
 	filter := &logFilter{
 		Limit:  50,
 		Offset: 0,
 	}
 
-	if v := qs.Query("limit"); v != "" {
+	if v := fp.Query("limit"); v != "" {
 		if d, err := strconv.ParseInt(v, 10, 64); err == nil {
 			filter.Limit = d
 		} else {
@@ -76,7 +78,7 @@ func buildLogFilter(qs queryString) (*logFilter, Error) {
 		}
 	}
 
-	if v := qs.Query("offset"); v != "" {
+	if v := fp.Query("offset"); v != "" {
 		if d, err := strconv.ParseInt(v, 10, 64); err == nil {
 			filter.Offset = d
 		} else {
@@ -84,7 +86,7 @@ func buildLogFilter(qs queryString) (*logFilter, Error) {
 		}
 	}
 
-	if v := qs.Query("query"); v != "" {
+	if v := fp.Query("query"); v != "" {
 		if q, err := gojq.Parse(v); err == nil {
 			filter.Query = q
 		} else {
@@ -92,15 +94,15 @@ func buildLogFilter(qs queryString) (*logFilter, Error) {
 		}
 	}
 
-	if v := qs.Query("tags"); v != "" {
-		filter.Tags = map[string]bool{}
+	if v := fp.Query("tags"); v != "" {
+		filter.TargetTags = map[string]bool{}
 
 		for _, tag := range strings.Split(v, ",") {
-			filter.Tags[tag] = true
+			filter.TargetTags[tag] = true
 		}
 	}
 
-	if v := qs.Query("begin"); v != "" {
+	if v := fp.Query("begin"); v != "" {
 		if ts, err := strconv.ParseInt(v, 10, 64); err == nil {
 			filter.Begin = &ts
 		} else {
@@ -108,11 +110,25 @@ func buildLogFilter(qs queryString) (*logFilter, Error) {
 		}
 	}
 
-	if v := qs.Query("end"); v != "" {
+	if v := fp.Query("end"); v != "" {
 		if ts, err := strconv.ParseInt(v, 10, 64); err == nil {
 			filter.End = &ts
 		} else {
 			return nil, wrapUserError(err, 400, "Fail to parse 'end', must be integer")
+		}
+	}
+
+	permitted := fp.GetHeader("x-permitted-tags")
+	switch permitted {
+	case "":
+		// nothing to do
+	case "*":
+		// nothing to do
+	default:
+		filter.PermittedTags = map[string]bool{}
+		tags := strings.Split(permitted, ",")
+		for _, tag := range tags {
+			filter.PermittedTags[tag] = true
 		}
 	}
 
@@ -154,18 +170,24 @@ func extractLogs(ch chan *logQueue, filter logFilter) (*logDataSet, error) {
 		if q.Error != nil {
 			return nil, q.Error
 		}
-		total++
 
 		log, err := recordToLogData(q.Record)
 		if err != nil {
 			return nil, err
 		}
 
+		if filter.PermittedTags != nil {
+			if _, ok := filter.PermittedTags[log.Tag]; !ok {
+				continue
+			}
+		}
+
+		total++
 		// tags has all set of tag in whole log data.
 		tags.add(log.Tag)
 
-		if filter.Tags != nil {
-			if _, ok := filter.Tags[log.Tag]; !ok {
+		if filter.TargetTags != nil {
+			if _, ok := filter.TargetTags[log.Tag]; !ok {
 				continue
 			}
 		}
