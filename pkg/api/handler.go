@@ -27,12 +27,18 @@ type MinervaHandler struct {
 
 // Handler is handler interface
 func sendResponse(c *gin.Context, resp *Response, err Error) {
+	var code int
+	if resp != nil {
+		code = resp.Code
+	}
+
 	Logger.WithFields(logrus.Fields{
 		"path":       c.FullPath(),
 		"request_id": c.GetHeader("x-request-id"),
 		"ipaddr":     c.ClientIP(),
 		"user_agent": c.Request.UserAgent(),
-		"resp_code":  resp.Code,
+		"resp_code":  code,
+		"error":      err,
 	}).Info("Audit log")
 
 	if err != nil {
