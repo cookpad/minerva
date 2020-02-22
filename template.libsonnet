@@ -589,6 +589,7 @@
               S3_BUCKET: DataS3Bucket,
               S3_PREFIX: DataS3Prefix,
               LOG_LEVEL: 'DEBUG',
+              SEARCH_TABLE_NAME: { Ref: 'SearchTable' },
             },
           },
           Events: {

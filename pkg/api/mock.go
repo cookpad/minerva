@@ -10,31 +10,31 @@ import (
 	"github.com/google/uuid"
 )
 
-type queryMeta struct {
+type searchMeta struct {
 	query  string
 	ExecAt time.Time
 }
 
 type MockHandler struct {
-	mapQueryID map[string]*queryMeta
-	LogTotal   int
-	LogLimit   int
+	mapSearchID map[searchID]*searchMeta
+	LogTotal    int
+	LogLimit    int
 }
 
 func NewMockHandler() *MockHandler {
 	return &MockHandler{
-		mapQueryID: make(map[string]*queryMeta),
+		mapSearchID: make(map[searchID]*searchMeta),
 	}
 }
 
 func (x *MockHandler) ExecSearch(c *gin.Context) (*Response, Error) {
-	queryID := uuid.New().String()
-	x.mapQueryID[queryID] = &queryMeta{
+	id := searchID(uuid.New().String())
+	x.mapSearchID[id] = &searchMeta{
 		ExecAt: time.Now(),
 	}
 
 	return &Response{201, &ExecSearchResponse{
-		QueryID: queryID,
+		SearchID: searchID(id),
 	}}, nil
 }
 
@@ -123,13 +123,13 @@ func newLogStream(max int) chan *logQueue {
 }
 
 func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
-	queryID := c.Param("query_id")
+	id := searchID(c.Param("search_id"))
 
 	resp := GetSearchLogsResponse{
-		QueryID: queryID,
+		ID: id,
 	}
 
-	q, ok := x.mapQueryID[queryID]
+	q, ok := x.mapSearchID[id]
 	if !ok {
 		Logger.Error("invalid query ID")
 		return &Response{404, "query not found"}, nil
@@ -165,5 +165,9 @@ func (x *MockHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
 }
 
 func (x *MockHandler) GetSearchTimeSeries(c *gin.Context) (*Response, Error) {
+	return nil, nil
+}
+
+func (x *MockHandler) GetSearch(c *gin.Context) (*Response, Error) {
 	return nil, nil
 }

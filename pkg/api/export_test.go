@@ -8,6 +8,7 @@ var (
 type LogFilter logFilter
 type LogDataSet logDataSet
 type LogQueue logQueue
+type SearchID searchID
 
 func ExtractLogs(ch chan *LogQueue, filter LogFilter) (*LogDataSet, error) {
 	pipe := make(chan *logQueue)

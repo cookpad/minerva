@@ -13,6 +13,7 @@ type Response struct {
 
 type Handler interface {
 	ExecSearch(c *gin.Context) (*Response, Error)
+	GetSearch(c *gin.Context) (*Response, Error)
 	GetSearchLogs(c *gin.Context) (*Response, Error)
 	GetSearchTimeSeries(c *gin.Context) (*Response, Error)
 }
@@ -22,7 +23,12 @@ type MinervaHandler struct {
 	IndexTableName   string
 	MessageTableName string
 	OutputPath       string
+	SearchTableName  string
 	Region           string
+}
+
+func (x *MinervaHandler) newSearchRepo() searchRepository {
+	return newSearchRepoDynamoDB(x.Region, x.SearchTableName)
 }
 
 // Handler is handler interface

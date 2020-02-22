@@ -10,6 +10,7 @@ type Error interface {
 	Error() string
 	Code() int
 	Message() string
+	Cause() error
 }
 
 type baseError struct {
@@ -24,6 +25,10 @@ func (x *baseError) Message() string {
 	}
 
 	return x.Err.Error()
+}
+
+func (x *baseError) Cause() error {
+	return x.Err
 }
 
 type userError struct{ baseError }

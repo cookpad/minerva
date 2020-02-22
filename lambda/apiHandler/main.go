@@ -27,6 +27,7 @@ func main() {
 		MessageTableName: os.Getenv("MESSAGE_TABLE_NAME"),
 		OutputPath:       fmt.Sprintf("s3://%s/%soutput", os.Getenv("S3_BUCKET"), os.Getenv("S3_PREFIX")),
 		Region:           os.Getenv("AWS_REGION"),
+		SearchTableName:  os.Getenv("SEARCH_TABLE_NAME"),
 	}
 
 	gin.SetMode(gin.ReleaseMode)

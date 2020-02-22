@@ -40,16 +40,11 @@ func toQueryStatus(athenaStatus string) queryStatus {
 	return status
 }
 
-type getQueryExecutionMetaData struct {
-	Status         queryStatus `json:"status"`
-	SubmittedTime  time.Time   `json:"submitted_time"`
-	ElapsedSeconds float64     `json:"elapsed_seconds"`
-}
-
 type athenaQueryStatus struct {
 	Status      string
-	ElapsedTime time.Duration
+	CompletedAt *time.Time
 	OutputPath  string
+	ScannedSize int64
 }
 
 func getAthenaQueryStatus(region, queryID string) (*athenaQueryStatus, Error) {
@@ -66,20 +61,18 @@ func getAthenaQueryStatus(region, queryID string) (*athenaQueryStatus, Error) {
 	status := athenaQueryStatus{}
 	if output != nil && output.QueryExecution != nil {
 		if output.QueryExecution.Status != nil {
-			if s := output.QueryExecution.Status.SubmissionDateTime; s != nil {
-				if output.QueryExecution.Status.CompletionDateTime != nil {
-					status.ElapsedTime = output.QueryExecution.Status.CompletionDateTime.Sub(*s)
-				} else {
-					status.ElapsedTime = time.Now().UTC().Sub(*s)
-				}
-			}
-
+			status.CompletedAt = output.QueryExecution.Status.CompletionDateTime
 			status.Status = aws.StringValue(output.QueryExecution.Status.State)
 		}
 
 		if output.QueryExecution.ResultConfiguration != nil {
 			status.OutputPath = aws.StringValue(output.QueryExecution.ResultConfiguration.OutputLocation)
 		}
+		if output.QueryExecution.Statistics != nil {
+			status.ScannedSize = aws.Int64Value(output.QueryExecution.Statistics.DataScannedInBytes)
+		}
+	} else {
+		Logger.WithField("output", output).Error("No output from athena.GetQueryExecution")
 	}
 
 	return &status, nil

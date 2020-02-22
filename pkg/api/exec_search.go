@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/athena"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -19,12 +21,11 @@ import (
 const hardLimitOfSearchResult = 1000 * 1000 // 1,000,000
 
 type ExecSearchResponse struct {
-	QueryID string `json:"query_id"`
+	SearchID searchID `json:"search_id"`
 }
 
 type query struct {
-	Term  string `json:"term"`
-	Field string `json:"field,omitempty"`
+	Term string `json:"term" dynamo:"term"`
 }
 
 type request struct {
@@ -78,10 +79,30 @@ func (x *MinervaHandler) ExecSearch(c *gin.Context) (*Response, Error) {
 	if err != nil {
 		return nil, wrapSystemError(err, 500, "Fail StartQueryExecution in putQuery")
 	}
-	Logger.WithField("response", response).Debug("Sent query")
+
+	start, end, err := parseRequestTimes(req)
+	if err != nil {
+		return nil, wrapUserError(err, http.StatusBadRequest, err.Error())
+	}
+
+	now := time.Now().UTC()
+	item := searchItem{
+		ID:            searchID(uuid.New().String()),
+		Status:        statusRunning,
+		CreatedAt:     &now,
+		StartTime:     *start,
+		EndTime:       *end,
+		Query:         req.Query,
+		RequestID:     c.GetHeader("x-request-id"),
+		AthenaQueryID: aws.StringValue(response.QueryExecutionId),
+	}
+
+	if err := x.newSearchRepo().put(&item); err != nil {
+		return nil, wrapSystemErrorf(err, http.StatusInternalServerError, "Fail to put searchItem of ExecSearch")
+	}
 
 	return &Response{201, &ExecSearchResponse{
-		QueryID: aws.StringValue(response.QueryExecutionId),
+		SearchID: item.ID,
 	}}, nil
 }
 
@@ -117,15 +138,9 @@ func buildSQL(req request, idxTable, msgTable string) (*string, error) {
 	}
 
 	dtFmt := "2006-01-02-15"
-	inputFmt := "2006-01-02T15:04:05"
-
-	start, err := time.Parse(inputFmt, req.StartDateTime)
+	start, end, err := parseRequestTimes(req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Invalid start_dt format: %v", req.StartDateTime)
-	}
-	end, err := time.Parse(inputFmt, req.EndDateTime)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Invalid end_dt format: %v", req.EndDateTime)
+		return nil, err
 	}
 
 	idxTerms := strings.Join(termCond, "\nOR ")
@@ -162,4 +177,19 @@ ORDER BY messages.timestamp`,
 		idxWhere, len(termSet), searchRowLimit, msgWhere)
 
 	return &sql, nil
+}
+
+func parseRequestTimes(req request) (*time.Time, *time.Time, error) {
+	inputFmt := "2006-01-02T15:04:05"
+
+	start, err := time.Parse(inputFmt, req.StartDateTime)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "Invalid start_dt format: %v", req.StartDateTime)
+	}
+	end, err := time.Parse(inputFmt, req.EndDateTime)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "Invalid end_dt format: %v", req.EndDateTime)
+	}
+
+	return &start, &end, nil
 }
