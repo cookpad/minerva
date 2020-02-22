@@ -60,6 +60,12 @@ func main() {
 				Usage:       "AWS region",
 				Destination: &args.Region,
 			},
+			&cli.StringFlag{
+				Name:        "search-table",
+				Aliases:     []string{"s"},
+				Usage:       "Search DynamoDB table name",
+				Destination: &args.SearchTableName,
+			},
 
 			// Optional parameters
 			&cli.StringFlag{

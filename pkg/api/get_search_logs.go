@@ -1,7 +1,6 @@
 package api
 
 import (
-	"github.com/aws/aws-sdk-go/service/athena"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -15,7 +14,7 @@ type logData struct {
 }
 
 type GetSearchLogMetaData struct {
-	getQueryExecutionMetaData
+	searchMetaData
 	Total    int64    `json:"total"`
 	SubTotal int64    `json:"sub_total"`
 	Offset   int64    `json:"offset"`
@@ -24,33 +23,32 @@ type GetSearchLogMetaData struct {
 }
 
 type GetSearchLogsResponse struct {
-	QueryID  string               `json:"query_id"`
+	ID       searchID             `json:"search_id"`
 	Logs     []*logData           `json:"logs"`
 	MetaData GetSearchLogMetaData `json:"metadata"`
 }
 
 func (x MinervaHandler) GetSearchLogs(c *gin.Context) (*Response, Error) {
-	queryID := c.Param("query_id")
+	id := searchID(c.Param("search_id"))
 
 	Logger.WithFields(logrus.Fields{
-		"args":    x,
-		"queryID": queryID,
+		"args":     x,
+		"searchID": id,
 	}).Info("Start getSearchLogs")
 
 	resp := GetSearchLogsResponse{
-		QueryID: queryID,
+		ID: id,
 	}
 
-	status, err := getAthenaQueryStatus(x.Region, queryID)
+	meta, err := x.getMetaData(id)
 	if err != nil {
 		return nil, err
 	}
 
-	resp.MetaData.ElapsedSeconds = status.ElapsedTime.Seconds()
-	resp.MetaData.Status = toQueryStatus(status.Status)
+	resp.MetaData.searchMetaData = *meta
 
-	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {
-		s3path := status.OutputPath
+	if resp.MetaData.Status == statusSuccess {
+		s3path := meta.outputPath
 
 		logSet, err := loadLogs(x.Region, s3path, c)
 		if err != nil {

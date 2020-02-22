@@ -6,7 +6,7 @@ import (
 )
 
 type getQueryTimeSeriesResponse struct {
-	QueryID    string               `json:"query_id"`
+	ID         searchID             `json:"search_id"`
 	MetaData   GetSearchLogMetaData `json:"metadata"`
 	TimeSeries map[string][]int     `json:"timeseries"`
 }
@@ -14,25 +14,24 @@ type getQueryTimeSeriesResponse struct {
 func (x *MinervaHandler) GetSearchTimeSeries(c *gin.Context) (*Response, Error) {
 	Logger.WithField("args", x).Info("Start getSearchLogs")
 
-	queryID := c.Param("query_id")
+	id := searchID(c.Param("search_id"))
 	tsData := map[string][]int64{}
 	var tsUnitNum int64 = 20
 
 	resp := getQueryTimeSeriesResponse{
-		QueryID: queryID,
+		ID: id,
 	}
 
-	status, err := getAthenaQueryStatus(x.Region, queryID)
+	meta, err := x.getMetaData(id)
 	if err != nil {
 		return nil, err
 	}
 
-	resp.MetaData.ElapsedSeconds = status.ElapsedTime.Seconds()
-	resp.MetaData.Status = toQueryStatus(status.Status)
+	resp.MetaData.searchMetaData = *meta
 
 	var tsMax, tsMin *int64
 	if resp.MetaData.Status == athena.QueryExecutionStateSucceeded {
-		ch, err := getLogStream(x.Region, status.OutputPath)
+		ch, err := getLogStream(x.Region, meta.outputPath)
 		if err != nil {
 			return nil, wrapSystemError(err, 500, "Fail to create LogStream")
 		}

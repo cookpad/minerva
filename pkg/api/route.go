@@ -14,11 +14,15 @@ func SetupRoute(r *gin.RouterGroup, handler Handler) {
 		resp, err := handler.ExecSearch(c)
 		sendResponse(c, resp, err)
 	})
-	r.GET("/search/:query_id/logs", func(c *gin.Context) {
+	r.GET("/search/:search_id", func(c *gin.Context) {
 		resp, err := handler.GetSearchLogs(c)
 		sendResponse(c, resp, err)
 	})
-	r.GET("/search/:query_id/timeseries", func(c *gin.Context) {
+	r.GET("/search/:search_id/logs", func(c *gin.Context) {
+		resp, err := handler.GetSearchLogs(c)
+		sendResponse(c, resp, err)
+	})
+	r.GET("/search/:search_id/timeseries", func(c *gin.Context) {
 		resp, err := handler.GetSearchTimeSeries(c)
 		sendResponse(c, resp, err)
 	})
