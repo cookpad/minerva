@@ -15,7 +15,7 @@ func SetupRoute(r *gin.RouterGroup, handler Handler) {
 		sendResponse(c, resp, err)
 	})
 	r.GET("/search/:search_id", func(c *gin.Context) {
-		resp, err := handler.GetSearchLogs(c)
+		resp, err := handler.GetSearch(c)
 		sendResponse(c, resp, err)
 	})
 	r.GET("/search/:search_id/logs", func(c *gin.Context) {

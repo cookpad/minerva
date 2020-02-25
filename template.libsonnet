@@ -602,7 +602,16 @@
                 Auth: { ApiKeyRequired: true },
               },
             },
-            GetSearchResult: {
+            GetSearch: {
+              Type: 'Api',
+              Properties: {
+                Method: 'get',
+                Path: '/api/v1/search/{search_id}',
+                RestApiId: { Ref: 'ApiGW' },
+                Auth: { ApiKeyRequired: true },
+              },
+            },
+            GetSearchLogs: {
               Type: 'Api',
               Properties: {
                 Method: 'get',
