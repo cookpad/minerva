@@ -15,7 +15,7 @@ type searchMetaData struct {
 	Status         queryStatus `json:"status"`
 	SubmittedTime  time.Time   `json:"submitted_time"`
 	ElapsedSeconds float64     `json:"elapsed_seconds"`
-	Query          []query     `json:"query"`
+	Query          []Query     `json:"query"`
 	StartTime      int64       `json:"start_time"`
 	EndTime        int64       `json:"end_time"`
 
@@ -28,7 +28,7 @@ type searchItem struct {
 
 	ID            searchID    `dynamo:"id"`
 	Status        queryStatus `dynamo:"status"`
-	Query         []query     `dynamo:"query"`
+	Query         []Query     `dynamo:"query"`
 	StartTime     time.Time   `dynamo:"start_time"`
 	EndTime       time.Time   `dynamo:"end_time"`
 	CreatedAt     *time.Time  `dynamo:"created_at"`

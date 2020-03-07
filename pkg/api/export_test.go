@@ -23,9 +23,9 @@ func ExtractLogs(ch chan *LogQueue, filter LogFilter) (*LogDataSet, error) {
 }
 
 func newRequest(terms []string, start, end string) ExecSearchRequest {
-	var querySet []query
+	var querySet []Query
 	for _, t := range terms {
-		querySet = append(querySet, query{Term: t})
+		querySet = append(querySet, Query{Term: t})
 	}
 
 	return ExecSearchRequest{

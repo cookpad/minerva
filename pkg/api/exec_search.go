@@ -24,12 +24,12 @@ type ExecSearchResponse struct {
 	SearchID searchID `json:"search_id"`
 }
 
-type query struct {
+type Query struct {
 	Term string `json:"term" dynamo:"term"`
 }
 
 type ExecSearchRequest struct {
-	Query         []query `json:"query"`
+	Query         []Query `json:"query"`
 	StartDateTime string  `json:"start_dt"`
 	EndDateTime   string  `json:"end_dt"`
 }
