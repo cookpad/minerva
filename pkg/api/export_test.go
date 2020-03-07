@@ -22,13 +22,13 @@ func ExtractLogs(ch chan *LogQueue, filter LogFilter) (*LogDataSet, error) {
 	return (*LogDataSet)(v), err
 }
 
-func newRequest(terms []string, start, end string) request {
+func newRequest(terms []string, start, end string) ExecSearchRequest {
 	var querySet []query
 	for _, t := range terms {
 		querySet = append(querySet, query{Term: t})
 	}
 
-	return request{
+	return ExecSearchRequest{
 		Query:         querySet,
 		StartDateTime: start,
 		EndDateTime:   end,

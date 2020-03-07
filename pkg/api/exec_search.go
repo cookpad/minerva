@@ -28,7 +28,7 @@ type query struct {
 	Term string `json:"term" dynamo:"term"`
 }
 
-type request struct {
+type ExecSearchRequest struct {
 	Query         []query `json:"query"`
 	StartDateTime string  `json:"start_dt"`
 	EndDateTime   string  `json:"end_dt"`
@@ -39,7 +39,7 @@ const searchRowLimit = 1000 * 1000
 func (x *MinervaHandler) ExecSearch(c *gin.Context) (*Response, Error) {
 	Logger.WithField("context", *c).Info("Start putQuery")
 
-	var req request
+	var req ExecSearchRequest
 	body, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		return nil, wrapSystemError(err, 500, "Fail to read body")
@@ -106,7 +106,7 @@ func (x *MinervaHandler) ExecSearch(c *gin.Context) (*Response, Error) {
 	}}, nil
 }
 
-func buildSQL(req request, idxTable, msgTable string) (*string, error) {
+func buildSQL(req ExecSearchRequest, idxTable, msgTable string) (*string, error) {
 	tokenizer := internal.NewSimpleTokenizer()
 
 	termSet := map[string]struct{}{}
@@ -179,7 +179,7 @@ ORDER BY messages.timestamp`,
 	return &sql, nil
 }
 
-func parseRequestTimes(req request) (*time.Time, *time.Time, error) {
+func parseRequestTimes(req ExecSearchRequest) (*time.Time, *time.Time, error) {
 	inputFmt := "2006-01-02T15:04:05"
 
 	start, err := time.Parse(inputFmt, req.StartDateTime)
