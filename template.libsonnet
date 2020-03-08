@@ -3,7 +3,7 @@
         DataS3Bucket,
         DataS3Prefix='',
         AthenaDatabaseName,
-        SnsTopicArn,
+        SnsTopicArnMap,
         IndexerProperty,
         SrcS3Buckets=[],
         LambdaRoleArn='',
@@ -16,6 +16,25 @@
       'arn:aws:s3:::' + bucket,
       'arn:aws:s3:::' + bucket + '/*',
     ],
+    local toSqsStatement(topic) = {
+      Sid: 'MinervaIndexerSQSPolicy001',
+      Effect: 'Allow',
+      Principal: '*',
+      Action: 'sqs:SendMessage',
+      Resource: '${IndexerQueue.Arn}',
+      Condition: {
+        ArnEquals: { 'aws:SourceArn': topic },
+      },
+    },
+    local toSnsSubscription(key, topic) = {
+      Type: 'AWS::SNS::Subscription',
+      Properties: {
+        Endpoint: { 'Fn::GetAtt': 'IndexerQueue.Arn' },
+        Protocol: 'sqs',
+        TopicArn: topic,
+      },
+    },
+
     local LambdaRole = (
       if LambdaRoleArn != '' then LambdaRoleArn else { 'Fn::GetAtt': 'LambdaRole.Arn' }
     ),
@@ -24,18 +43,8 @@
     local sqsPolicy = {
       Version: '2012-10-17',
       Id: 'MinervaIndexerSQSPolicy',
-      Statement: [{
-        Sid: 'MinervaIndexerSQSPolicy001',
-        Effect: 'Allow',
-        Principal: '*',
-        Action: 'sqs:SendMessage',
-        Resource: '${IndexerQueue.Arn}',
-        Condition: {
-          ArnEquals: { 'aws:SourceArn': SnsTopicArn },
-        },
-      }],
+      Statement: std.map(function(k) toSqsStatement(SnsTopicArnMap[k]), std.objectFields(SnsTopicArnMap)),
     },
-
 
     local LambdaRoleTemplate = {
       LambdaRole: {
@@ -114,6 +123,10 @@
                       'sqs:GetQueueAttributes',
                     ],
                     Resource: [
+                      { 'Fn::GetAtt': 'IndexerQueue.Arn' },
+                      { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
+                      { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
+                      { 'Fn::GetAtt': 'IndexerRetryQueue.Arn' },
                       { 'Fn::GetAtt': 'MergeQueue.Arn' },
                       { 'Fn::GetAtt': 'PartitionQueue.Arn' },
                     ],
@@ -239,7 +252,6 @@
           },
         } + IndexerProperty,
       },
-
 
       listIndexObject: {
         Type: 'AWS::Serverless::Function',
@@ -468,14 +480,6 @@
           Queues: [{ Ref: 'IndexerQueue' }],
         },
       },
-      IndexerQueueSubscription: {
-        Type: 'AWS::SNS::Subscription',
-        Properties: {
-          Endpoint: { 'Fn::GetAtt': 'IndexerQueue.Arn' },
-          Protocol: 'sqs',
-          TopicArn: SnsTopicArn,
-        },
-      },
 
       MergeQueue: {
         Type: 'AWS::SQS::Queue',
@@ -652,6 +656,6 @@
           },
         },
       },
-    } + (if LambdaRoleArn == '' then LambdaRoleTemplate else {}),
+    } + std.mapWithKey(toSnsSubscription, SnsTopicArnMap) + (if LambdaRoleArn == '' then LambdaRoleTemplate else {}),
   },
 }
