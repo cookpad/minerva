@@ -46,8 +46,8 @@ func (x MinervaHandler) getMetaData(id searchID) (*searchMetaData, Error) {
 		StartTime:      item.StartTime.Unix(),
 		EndTime:        item.EndTime.Unix(),
 		SubmittedTime:  *item.CreatedAt,
-
-		outputPath: item.OutputPath,
+		ScannedSize:    item.ScannedSize,
+		outputPath:     item.OutputPath,
 	}, nil
 }
 
