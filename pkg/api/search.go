@@ -18,6 +18,7 @@ type searchMetaData struct {
 	Query          []Query     `json:"query"`
 	StartTime      int64       `json:"start_time"`
 	EndTime        int64       `json:"end_time"`
+	ScannedSize    int64       `json:"scanned_size"`
 
 	outputPath string // S3 output path
 }
