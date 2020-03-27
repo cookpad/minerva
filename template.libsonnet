@@ -8,6 +8,8 @@
         SrcS3Buckets=[],
         LambdaRoleArn='',
         SentryDSN='',
+        SentryEnv='',
+        LogLevel='INFO',
         ConcurrentExecution=5):: {
     local IndexTableName = 'indices',
     local ObjectTableName = 'objects',
@@ -221,11 +223,23 @@
     AWSTemplateFormatVersion: '2010-09-09',
     Transform: 'AWS::Serverless-2016-10-31',
 
+    Globals: {
+      Function: {
+        Runtime: 'go1.x',
+        Environment: {
+          Variables: {
+            LOG_LEVEL: LogLevel,
+            SENTRY_DSN: SentryDSN,
+            SENTRY_ENVIRONMENT: SentryEnv,
+          },
+        },
+      },
+    },
+
     Resources: {
       Indexer: {
         Type: 'AWS::Serverless::Function',
         Properties: {
-          Runtime: 'go1.x',
           Timeout: 600,
           MemorySize: 2048,
           ReservedConcurrentExecutions: ConcurrentExecution,
@@ -239,8 +253,6 @@
               MESSAGE_TABLE_NAME: MessageTableName,
               META_TABLE_NAME: { Ref: 'MetaTable' },
               PARTITION_QUEUE: { Ref: 'PartitionQueue' },
-              LOG_LEVEL: 'INFO',
-              SENTRY_DSN: SentryDSN,
             },
           },
           Events: {
@@ -260,7 +272,6 @@
         Properties: {
           CodeUri: 'build',
           Handler: 'listIndexObject',
-          Runtime: 'go1.x',
           Timeout: 300,
           MemorySize: 1024,
           Role: LambdaRole,
@@ -270,8 +281,6 @@
               S3_BUCKET: DataS3Bucket,
               S3_PREFIX: DataS3Prefix,
               MERGE_QUEUE: { Ref: 'MergeQueue' },
-              LOG_LEVEL: 'DEBUG',
-              SENTRY_DSN: SentryDSN,
             },
           },
           DeadLetterQueue: {
@@ -292,17 +301,10 @@
         Properties: {
           CodeUri: 'build',
           Handler: 'mergeIndexObject',
-          Runtime: 'go1.x',
           Timeout: 450,
           MemorySize: 2048,
           Role: LambdaRole,
           ReservedConcurrentExecutions: 20,
-          Environment: {
-            Variables: {
-              LOG_LEVEL: 'DEBUG',
-              SENTRY_DSN: SentryDSN,
-            },
-          },
           DeadLetterQueue: {
             Type: 'SQS',
             TargetArn: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
@@ -324,7 +326,6 @@
         Properties: {
           CodeUri: 'build',
           Handler: 'makePartition',
-          Runtime: 'go1.x',
           Timeout: 30,
           MemorySize: 128,
           Role: LambdaRole,
@@ -335,8 +336,6 @@
               META_TABLE_NAME: { Ref: 'MetaTable' },
               S3_BUCKET: DataS3Bucket,
               S3_PREFIX: DataS3Prefix,
-              LOG_LEVEL: 'INFO',
-              SENTRY_DSN: SentryDSN,
             },
           },
           DeadLetterQueue: {
@@ -360,7 +359,6 @@
         Properties: {
           CodeUri: 'build',
           Handler: 'errorHandler',
-          Runtime: 'go1.x',
           Timeout: 30,
           MemorySize: 128,
           Role: LambdaRole,
@@ -369,7 +367,6 @@
               GENERAL_DLQ: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
               INDEXER_DLQ: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
               RETRY_QUEUE: { Ref: 'IndexerRetryQueue' },
-              SENTRY_DSN: SentryDSN,
             },
           },
           Events: {
@@ -396,7 +393,6 @@
         Properties: {
           CodeUri: 'build',
           Handler: 'loadIndexerRetry',
-          Runtime: 'go1.x',
           Timeout: 300,
           MemorySize: 128,
           Role: LambdaRole,
@@ -404,8 +400,6 @@
             Variables: {
               RETRY_QUEUE: { Ref: 'IndexerRetryQueue' },
               INDEXER_QUEUE: { Ref: 'IndexerQueue' },
-              LOG_LEVEL: 'DEBUG',
-              SENTRY_DSN: SentryDSN,
             },
           },
         },
@@ -588,7 +582,6 @@
         Properties: {
           CodeUri: 'build',
           Handler: 'apiHandler',
-          Runtime: 'go1.x',
           Timeout: 120,
           MemorySize: 2048,
           Role: LambdaRole,
@@ -599,8 +592,6 @@
               MESSAGE_TABLE_NAME: MessageTableName,
               S3_BUCKET: DataS3Bucket,
               S3_PREFIX: DataS3Prefix,
-              LOG_LEVEL: 'DEBUG',
-              SENTRY_DSN: SentryDSN,
               SEARCH_TABLE_NAME: { Ref: 'SearchTable' },
             },
           },
