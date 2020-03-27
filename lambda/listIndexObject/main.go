@@ -18,6 +18,7 @@ type listParquetEvent struct {
 }
 
 func handleRequest(ctx context.Context, event listParquetEvent) error {
+	defer internal.FlushError()
 	logger.WithField("event", event).Debug("Start handler")
 
 	args := arguments{
@@ -38,13 +39,17 @@ func handleRequest(ctx context.Context, event listParquetEvent) error {
 	args.BaseTime = lastTime
 	logger.WithField("args", args).Info("Start indexer for last timeslot")
 	if err := listParquet(args); err != nil {
-		return errors.Wrap(err, "Fail to list parquet files")
+		err = errors.Wrap(err, "Fail to list parquet files")
+		internal.HandleError(err)
+		return err
 	}
 
 	args.BaseTime = baseTime
 	logger.WithField("args", args).Info("Start indexer for current timeslot")
 	if err := listParquet(args); err != nil {
-		return errors.Wrap(err, "Fail to list parquet files")
+		err = errors.Wrap(err, "Fail to list parquet files")
+		internal.HandleError(err)
+		return err
 	}
 
 	return nil

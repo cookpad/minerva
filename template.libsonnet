@@ -7,6 +7,7 @@
         IndexerProperty,
         SrcS3Buckets=[],
         LambdaRoleArn='',
+        SentryDSN='',
         ConcurrentExecution=5):: {
     local IndexTableName = 'indices',
     local ObjectTableName = 'objects',
@@ -239,6 +240,7 @@
               META_TABLE_NAME: { Ref: 'MetaTable' },
               PARTITION_QUEUE: { Ref: 'PartitionQueue' },
               LOG_LEVEL: 'INFO',
+              SENTRY_DSN: SentryDSN,
             },
           },
           Events: {
@@ -269,6 +271,7 @@
               S3_PREFIX: DataS3Prefix,
               MERGE_QUEUE: { Ref: 'MergeQueue' },
               LOG_LEVEL: 'DEBUG',
+              SENTRY_DSN: SentryDSN,
             },
           },
           DeadLetterQueue: {
@@ -297,6 +300,7 @@
           Environment: {
             Variables: {
               LOG_LEVEL: 'DEBUG',
+              SENTRY_DSN: SentryDSN,
             },
           },
           DeadLetterQueue: {
@@ -332,6 +336,7 @@
               S3_BUCKET: DataS3Bucket,
               S3_PREFIX: DataS3Prefix,
               LOG_LEVEL: 'INFO',
+              SENTRY_DSN: SentryDSN,
             },
           },
           DeadLetterQueue: {
@@ -364,6 +369,7 @@
               GENERAL_DLQ: { 'Fn::GetAtt': 'GeneralDeadLetterQueue.Arn' },
               INDEXER_DLQ: { 'Fn::GetAtt': 'IndexerDeadLetterQueue.Arn' },
               RETRY_QUEUE: { Ref: 'IndexerRetryQueue' },
+              SENTRY_DSN: SentryDSN,
             },
           },
           Events: {
@@ -399,6 +405,7 @@
               RETRY_QUEUE: { Ref: 'IndexerRetryQueue' },
               INDEXER_QUEUE: { Ref: 'IndexerQueue' },
               LOG_LEVEL: 'DEBUG',
+              SENTRY_DSN: SentryDSN,
             },
           },
         },
@@ -593,6 +600,7 @@
               S3_BUCKET: DataS3Bucket,
               S3_PREFIX: DataS3Prefix,
               LOG_LEVEL: 'DEBUG',
+              SENTRY_DSN: SentryDSN,
               SEARCH_TABLE_NAME: { Ref: 'SearchTable' },
             },
           },

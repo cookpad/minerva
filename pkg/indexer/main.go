@@ -14,14 +14,7 @@ import (
 
 var logger = internal.Logger
 
-// RunIndexer is main handler of indexer. It requires log reader based on rlogs
-func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
-	logger.SetLevel(logrus.InfoLevel)
-	logger.SetFormatter(&logrus.JSONFormatter{})
-	internal.SetLogLevel(os.Getenv("LOG_LEVEL"))
-
-	logger.WithField("event", sqsEvent).Debug("Start handler")
-
+func handleEvent(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
 	for _, sqsRecord := range sqsEvent.Records {
 		var snsEntity events.SNSEntity
 		if err := json.Unmarshal([]byte(sqsRecord.Body), &snsEntity); err != nil {
@@ -63,6 +56,22 @@ func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Rea
 				return errors.Wrap(err, "Fail to create inverted index")
 			}
 		}
+	}
+
+	return nil
+}
+
+// RunIndexer is main handler of indexer. It requires log reader based on rlogs
+func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
+	defer internal.FlushError()
+	logger.SetLevel(logrus.InfoLevel)
+	logger.SetFormatter(&logrus.JSONFormatter{})
+	internal.SetLogLevel(os.Getenv("LOG_LEVEL"))
+	logger.WithField("event", sqsEvent).Debug("Start handler")
+
+	if err := handleEvent(ctx, sqsEvent, reader); err != nil {
+		internal.HandleError(err)
+		return err
 	}
 
 	return nil

@@ -16,12 +16,15 @@ import (
 var logger = internal.Logger
 
 func handleRequest(ctx context.Context, event events.SQSEvent) error {
+	defer internal.FlushError()
 	logger.WithField("event", event).Debug("Start handler")
 
 	for _, msg := range event.Records {
 		var q internal.PartitionQueue
 		if err := json.Unmarshal([]byte(msg.Body), &q); err != nil {
-			return errors.Wrapf(err, "Fail to unmarshal PartitionQueue: %s", msg.Body)
+			err = errors.Wrapf(err, "Fail to unmarshal PartitionQueue: %s", msg.Body)
+			internal.HandleError(err)
+			return err
 		}
 
 		args := arguments{
@@ -34,7 +37,9 @@ func handleRequest(ctx context.Context, event events.SQSEvent) error {
 
 		logger.WithField("args", args).Info("Start partitioning")
 		if err := makePartition(args); err != nil {
-			return errors.Wrapf(err, "Fail to make partition: %v", args)
+			err = errors.Wrapf(err, "Fail to make partition: %v", args)
+			internal.HandleError(err)
+			return err
 		}
 	}
 
