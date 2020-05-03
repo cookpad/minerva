@@ -47,24 +47,28 @@ func main() {
 				Aliases:     []string{"d"},
 				Usage:       "Athena DB name",
 				Destination: &args.DatabaseName,
+				EnvVars:     []string{"DB_NAME"},
 			},
 			&cli.StringFlag{
 				Name:        "output",
 				Aliases:     []string{"o"},
 				Usage:       "Output S3 path such as s3://my-bucket/out",
 				Destination: &args.OutputPath,
+				EnvVars:     []string{"S3_OUTPUT"},
 			},
 			&cli.StringFlag{
 				Name:        "region",
 				Aliases:     []string{"r"},
 				Usage:       "AWS region",
 				Destination: &args.Region,
+				EnvVars:     []string{"REGION"},
 			},
 			&cli.StringFlag{
 				Name:        "search-table",
 				Aliases:     []string{"s"},
 				Usage:       "Search DynamoDB table name",
 				Destination: &args.SearchTableName,
+				EnvVars:     []string{"SEARCH_TABLE_NAME"},
 			},
 
 			// Optional parameters
