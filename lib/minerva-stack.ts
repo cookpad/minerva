@@ -129,7 +129,7 @@ export class MinervaStack extends cdk.Stack {
       reservedConcurrentExecutions: args.concurrentExecution,
     });
     new events.Rule(this, "ListIndexEvery10min", {
-      schedule: events.Schedule.expression("rate(10 minutes)"),
+      schedule: events.Schedule.rate(cdk.Duration.minutes(10)),
       targets: [new eventTargets.LambdaFunction(listIndexObject)],
     });
 
