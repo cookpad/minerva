@@ -45,7 +45,7 @@ export class MinervaStack extends cdk.Stack {
     const dataBucket = s3.Bucket.fromBucketArn(
       this,
       "dataBucket",
-      args.dataS3Bucket
+      "arn:aws:s3:::" + args.dataS3Bucket
     );
     const dataTopic = sns.Topic.fromTopicArn(
       this,
