@@ -11,26 +11,24 @@ const app = new cdk.App();
 const bucket = s3.Bucket.fromBucketArn(
   app,
   "dataBucket",
-  "arn:aws:s3:::my-bucket"
+  "arn:aws:s3:::" + process.env.MINERVA_S3_BUCKET
 );
 const topic = sns.Topic.fromTopicArn(
   app,
   "dataTopic",
-  "arn:aws:sns:ap-northeast-1:1234567890:mytopic"
+  process.env.MINERVA_SNS_TOPIC_ARN!
 );
 const lambdaRole = iam.Role.fromRoleArn(
   app,
   "LambdaRole",
-  "arn:aws:iam::1234567890:role/LambdaMinervaRole",
-  {
-    mutable: false,
-  }
+  process.env.MINERVA_LAMBDA_ROLE_ARN!,
+  { mutable: false }
 );
 
 new MinervaStack(app, "MyMinervaStack", {
   dataS3Bucket: bucket,
-  dataS3Prefix: "testing",
-  athenaDatabaseName: "test",
+  dataS3Prefix: process.env.MINERVA_S3_PREFIX!,
+  athenaDatabaseName: process.env.MINERVA_ATHENA_DB_NAME!,
   dataSNSTopic: topic,
   lambdaRole: lambdaRole,
 });
