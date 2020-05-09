@@ -206,7 +206,7 @@ export class MinervaStack extends cdk.Stack {
         ATHENA_DB_NAME: indexDB.databaseName,
         INDEX_TABLE_NAME: indexTableName,
         MESSAGE_TABLE_NAME: messageTableName,
-        META_TABLE_NAME: searchTable.tableName,
+        SEARCH_TABLE_NAME: searchTable.tableName,
       },
     });
 
