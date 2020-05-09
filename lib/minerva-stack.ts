@@ -55,7 +55,6 @@ export class MinervaStack extends cdk.Stack {
 
     const buildPath = lambda.Code.asset("./build");
     const indexTableName = "indices";
-    const objectTableName = "objects";
     const messageTableName = "messages";
 
     // DynamoDB
