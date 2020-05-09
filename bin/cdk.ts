@@ -2,9 +2,6 @@
 import "source-map-support/register";
 import * as cdk from "@aws-cdk/core";
 import { MinervaStack } from "../lib/minerva-stack";
-import * as s3 from "@aws-cdk/aws-s3";
-import * as sns from "@aws-cdk/aws-sns";
-import * as iam from "@aws-cdk/aws-iam";
 
 const app = new cdk.App();
 

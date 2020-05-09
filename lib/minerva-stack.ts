@@ -10,7 +10,10 @@ import * as apigateway from "@aws-cdk/aws-apigateway";
 
 import { SqsSubscription } from "@aws-cdk/aws-sns-subscriptions";
 import { SqsEventSource } from "@aws-cdk/aws-lambda-event-sources";
-import { countResourcesLike } from "@aws-cdk/assert";
+
+const eventTargets = require("@aws-cdk/aws-events-targets");
+// const events = require("@aws-cdk/aws-events");
+import * as events from "@aws-cdk/aws-events";
 
 interface MinervaArguments {
   lambdaRoleARN: string;
@@ -23,6 +26,7 @@ interface MinervaArguments {
   sentryEnv?: string;
   logLevel?: string;
   concurrentExecution?: number;
+  running?: boolean;
 }
 
 export class MinervaStack extends cdk.Stack {
@@ -56,6 +60,7 @@ export class MinervaStack extends cdk.Stack {
     const buildPath = lambda.Code.asset("./build");
     const indexTableName = "indices";
     const messageTableName = "messages";
+    const running = args.running || true;
 
     // DynamoDB
     const metaTable = new dynamodb.Table(this, "metaTable", {
@@ -77,11 +82,6 @@ export class MinervaStack extends cdk.Stack {
       visibilityTimeout: cdk.Duration.seconds(600),
     });
     dataTopic.addSubscription(new SqsSubscription(indexerQueue));
-    /*
-    const indexerQueuePolicy = new sqs.QueuePolicy(this, "indexerQueuePolicy", {
-      queues: [indexerQueue],
-    });
-    */
 
     const mergeQueue = new sqs.Queue(this, "mergeQueue", {
       visibilityTimeout: cdk.Duration.seconds(450),
@@ -106,8 +106,12 @@ export class MinervaStack extends cdk.Stack {
         PARTITION_QUEUE: partitionQueue.queueUrl,
       },
       reservedConcurrentExecutions: args.concurrentExecution,
-      events: [new SqsEventSource(indexerQueue, { batchSize: 1 })],
     });
+    if (running) {
+      indexer.addEventSource(
+        new SqsEventSource(indexerQueue, { batchSize: 1 })
+      );
+    }
 
     const listIndexObject = new lambda.Function(this, "listIndexObject", {
       runtime: lambda.Runtime.GO_1_X,
@@ -123,7 +127,10 @@ export class MinervaStack extends cdk.Stack {
         MERGE_QUEUE: mergeQueue.queueUrl,
       },
       reservedConcurrentExecutions: args.concurrentExecution,
-      // events: , TBD
+    });
+    new events.Rule(this, "ListIndexEvery10min", {
+      schedule: events.Schedule.expression("rate(10 minutes)"),
+      targets: [new eventTargets.LambdaFunction(listIndexObject)],
     });
 
     const mergeIndexObject = new lambda.Function(this, "mergeIndexObject", {
