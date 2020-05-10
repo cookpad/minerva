@@ -23,9 +23,9 @@ type MetaDynamoDB struct {
 }
 
 type metaRecord struct {
-	ExpiresAt time.Time `dynamo:"expires_at"`
-	PKey      string    `dynamo:"pk"`
-	SKey      string    `dynamo:"sk"`
+	ExpiresAt int64  `dynamo:"expires_at"`
+	PKey      string `dynamo:"pk"`
+	SKey      string `dynamo:"sk"`
 }
 
 type metaObjectCount struct {
@@ -52,7 +52,12 @@ func (x *MetaDynamoDB) GetObjecID(s3bucket, s3key string) (int64, error) {
 	}
 
 	var result metaObjectCount
-	if err := x.table.Update("pk", "object:counter").Range("sk", "@").Add("id", 1).Value(&result); err != nil {
+	var inc int64 = 1
+	query := x.table.
+		Update("pk", "meta:indexer").
+		Range("sk", "counter").
+		Add("id", inc)
+	if err := query.Value(&result); err != nil {
 		return 0, errors.Wrap(err, "Fail to update Object ID in DynamoDB")
 	}
 
@@ -82,7 +87,7 @@ func (x *MetaDynamoDB) HeadPartition(partitionKey string) (bool, error) {
 func (x *MetaDynamoDB) PutPartition(partitionKey string) error {
 	now := time.Now().UTC()
 	pindex := metaRecord{
-		ExpiresAt: now.Add(time.Hour * 24 * 365),
+		ExpiresAt: now.Add(time.Hour * 24 * 365).Unix(),
 		PKey:      toPartitionKey(partitionKey),
 		SKey:      "@",
 	}

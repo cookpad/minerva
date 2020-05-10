@@ -37,6 +37,7 @@ function getMetaTable(scope: cdk.Construct, metaTableName?: string) {
   } else {
     return new dynamodb.Table(scope, id, {
       partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       timeToLiveAttribute: "expires_at",
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
     });
