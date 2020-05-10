@@ -22,11 +22,25 @@ interface MinervaArguments {
   dataS3Prefix: string;
   dataSNSTopicARN: string;
   athenaDatabaseName: string;
+  metaTableName?: string;
   sentryDSN?: string;
   sentryEnv?: string;
   logLevel?: string;
   concurrentExecution?: number;
   running?: boolean;
+}
+
+function getMetaTable(scope: cdk.Construct, metaTableName?: string) {
+  const id = "metaTable";
+  if (typeof metaTableName === "string") {
+    return dynamodb.Table.fromTableName(scope, id, metaTableName);
+  } else {
+    return new dynamodb.Table(scope, id, {
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      timeToLiveAttribute: "expires_at",
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+    });
+  }
 }
 
 export class MinervaStack extends cdk.Stack {
@@ -63,19 +77,7 @@ export class MinervaStack extends cdk.Stack {
     const running = args.running || true;
 
     // DynamoDB
-    const metaTable = new dynamodb.Table(this, "metaTable", {
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-      timeToLiveAttribute: "expires_at",
-      readCapacity: 20,
-      writeCapacity: 20,
-    });
-
-    const searchTable = new dynamodb.Table(this, "searchTable", {
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: "expires_at",
-    });
+    const metaTable = getMetaTable(this, args.metaTableName);
 
     // SQS
     const indexerQueue = new sqs.Queue(this, "indexerQueue", {
@@ -213,7 +215,7 @@ export class MinervaStack extends cdk.Stack {
         ATHENA_DB_NAME: indexDB.databaseName,
         INDEX_TABLE_NAME: indexTableName,
         MESSAGE_TABLE_NAME: messageTableName,
-        SEARCH_TABLE_NAME: searchTable.tableName,
+        META_TABLE_NAME: metaTable.tableName,
       },
     });
 
