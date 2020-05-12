@@ -239,12 +239,16 @@ export class MinervaStack extends cdk.Stack {
 
     const v1 = api.root.addResource("api").addResource("v1");
     const searchAPI = v1.addResource("search");
-
-    searchAPI.addMethod("POST");
+    const apiOption = {
+      apiKeyRequired: true,
+    };
+    searchAPI.addMethod("POST", undefined, apiOption);
 
     const searchAPIwithID = searchAPI.addResource("{search_id}");
-    searchAPIwithID.addMethod("GET");
-    searchAPIwithID.addResource("logs").addMethod("GET");
-    searchAPIwithID.addResource("timeseries").addMethod("GET");
+    searchAPIwithID.addMethod("GET", undefined, apiOption);
+    searchAPIwithID.addResource("logs").addMethod("GET", undefined, apiOption);
+    searchAPIwithID
+      .addResource("timeseries")
+      .addMethod("GET", undefined, apiOption);
   }
 }
