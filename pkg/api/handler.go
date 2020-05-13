@@ -23,12 +23,12 @@ type MinervaHandler struct {
 	IndexTableName   string
 	MessageTableName string
 	OutputPath       string
-	SearchTableName  string
+	MetaTableName    string
 	Region           string
 }
 
 func (x *MinervaHandler) newSearchRepo() searchRepository {
-	return newSearchRepoDynamoDB(x.Region, x.SearchTableName)
+	return newSearchRepoDynamoDB(x.Region, x.MetaTableName)
 }
 
 // Handler is handler interface

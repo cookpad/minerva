@@ -23,8 +23,9 @@ type MetaDynamoDB struct {
 }
 
 type metaRecord struct {
-	ExpiresAt time.Time `dynamo:"expires_at"`
-	PKey      string    `dynamo:"pk"`
+	ExpiresAt int64  `dynamo:"expires_at"`
+	PKey      string `dynamo:"pk"`
+	SKey      string `dynamo:"sk"`
 }
 
 type metaObjectCount struct {
@@ -51,7 +52,12 @@ func (x *MetaDynamoDB) GetObjecID(s3bucket, s3key string) (int64, error) {
 	}
 
 	var result metaObjectCount
-	if err := x.table.Update("pk", "object:counter").Add("id", 1).Value(&result); err != nil {
+	var inc int64 = 1
+	query := x.table.
+		Update("pk", "meta:indexer").
+		Range("sk", "counter").
+		Add("id", inc)
+	if err := query.Value(&result); err != nil {
 		return 0, errors.Wrap(err, "Fail to update Object ID in DynamoDB")
 	}
 
@@ -67,7 +73,7 @@ func toPartitionKey(partition string) string {
 func (x *MetaDynamoDB) HeadPartition(partitionKey string) (bool, error) {
 	var result metaRecord
 	pkey := toPartitionKey(partitionKey)
-	if err := x.table.Get("pk", pkey).One(&result); err != nil {
+	if err := x.table.Get("pk", pkey).Range("sk", dynamo.Equal, "@").One(&result); err != nil {
 		if err == dynamo.ErrNotFound {
 			return false, nil
 		}
@@ -81,8 +87,9 @@ func (x *MetaDynamoDB) HeadPartition(partitionKey string) (bool, error) {
 func (x *MetaDynamoDB) PutPartition(partitionKey string) error {
 	now := time.Now().UTC()
 	pindex := metaRecord{
-		ExpiresAt: now.Add(time.Hour * 24 * 365),
+		ExpiresAt: now.Add(time.Hour * 24 * 365).Unix(),
 		PKey:      toPartitionKey(partitionKey),
+		SKey:      "@",
 	}
 
 	if err := x.table.Put(pindex).Run(); err != nil {
@@ -98,24 +105,3 @@ func isConditionalCheckErr(err error) bool {
 	}
 	return false
 }
-
-/*
-func (x *MetaDynamoDB) LockPartition(partitionKey string) (bool, error) {
-	now := time.Now().UTC()
-	pindex := metaRecord{
-		ExpiresAt: now.Add(time.Hour * 24 * 365),
-		PKey:      partitionKey,
-	}
-
-	if err := x.table.Put(pindex).If("attribute_not_exists(partition_key) OR expires_at < ?", now).Run(); err != nil {
-		if isConditionalCheckErr(err) {
-			// The partition key already exists
-			return true, nil
-		}
-
-		return false, errors.Wrapf(err, "Fail to put parition key: %v", pindex)
-	}
-
-	return false, nil
-}
-*/
