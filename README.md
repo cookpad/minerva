@@ -27,56 +27,56 @@ On a side note, Minerva is the Roman goddess that is equated with Athena.
 ### Prerequisite
 
 - Tools
-  - aws-cli >= 1.16.310
+  - aws-cdk >= 1.38.0
   - go >= 1.13
-  - jsonnet >= 0.14.0
 - Resources
   - S3 bucket stored logs (assuming bucket name is `s3-log-bucket`)
   - S3 bucket stored parquet files (assuming bucket name is `s3-parquet-bucket`)
   - Amazon SNS receiving `s3:ObjectCreated`. See [docs](https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html) to configure. (assuming topic name is `s3-log-create-topic`)
+  - IAM role for Lambda Function to access S3 bucket and so on. (assuming role name is `YourLambdaRole` )
+  - Additionally, these resources are in `ap-northeast-1` region and account ID is `1234567890x`
 
 ### Configurations
 
-3 configuration files are required.
+Init your configuration directry by `cdk init` command.
 
-- `stack.jsonnet`: Describe CloudFormation stack settings.
-- `sam.jsonnet`: Describe parameters for CloudFormatoin template.
-- `indexer.go` Describe binding log format and S3 bucket stored original log objects.
-
-Example: `stack.jsonnet`
-
-```jsonnet
-{
-  StackName: 'minerva',
-  CodeS3Bucket: 'some-s3-bucket', // Storing Lambda code
-  CodeS3Prefix: 'functions', // Optional
-  Region: 'ap-northeast-1',
-}
+```sh
+$ cdk init --language typescript
 ```
 
-Example: `sam.jsonnet`
+Then, update `bin/cdk.ts` like following.
 
-```jsonnet
-local template = import 'template.libsonnet';
+```ts
+#!/usr/bin/env node
+import "source-map-support/register";
+import * as cdk from "@aws-cdk/core";
+import { MinervaStack } from "../minerva/lib/minerva-stack";
 
-local indexer = {
-  CodeUri: 'build',
-  Handler: 'indexer',
-};
-
-// You do not need to modify above lines basically.
-
-template.build(
-  DataS3Region='ap-northeast-1', // region where you want to deploy to
-  DataS3Bucket='s3-parquet-bucket', // in list of prerequisite resources
-  AthenaDatabaseName='minerva_db',
-  SrcS3Buckets=['s3-log-bucket'], // in list of prerequisite resources
-  SnsTopicArn='arn:aws:sns:ap-northeast-1:12345xxxxxx:s3-log-create-topic', // in list of prerequisite resources
-  IndexerProperty=indexer
-)
+const app = new cdk.App();
+const stackID = "your-stack-name";
+new MinervaStack(
+  app,
+  stackID,
+  {
+    dataS3Region: "ap-northeast-1",
+    dataS3Bucket: "s3-parquet-bucket",
+    dataS3Prefix: "production/", // Set as you like it
+    athenaDatabaseName: "minerva_db", // Set as you like it
+    dataSNSTopicARN:
+      "arn:aws:sns:ap-northeast-1:1234567890x:s3-log-create-topic",
+    lambdaRoleARN: "arn:aws:iam::1234567890x:role/YourLambdaRole",
+  },
+  {
+    stackName: stackID,
+    env: {
+      region: "ap-northeast-1",
+      account: "1234567890x",
+    },
+  }
+);
 ```
 
-Example: `indexer.go`
+After that, create `indexer.go`. An example is following.
 
 ```go
 package main
@@ -131,25 +131,20 @@ func main() {
 
 `indexer.go` is written based on [rlogs](https://github.com/m-mizutani/rlogs). Please see the repository for more detail.
 
+Lastly, clone minerva repository.
+
+```sh
+$ git clone git@github.com:m-mizutani/minerva.git
+```
+
 ### Deployment
 
 ```bash
-$ ls
-indexer.go
-sam.jsonnet
-stack.jsonnet
 $ go mod init indexer
 $ env GOARCH=amd64 GOOS=linux go build -o build/indexer .
-$ make # build all binaries and deploy CloudFormation
-```
-
-After succeeding deployment, you can access Minerva via HTTPS API from **inside of VPC network that has API gateway endpoint**.
-
-```
-% export API_ID=`cat output.json | jq '.StackResources[] | select
-(.LogicalResourceId == "ApiGW") | .PhysicalResourceId ' -r`
-% export AWS_REGION=ap-northeast-1
-% curl -X POST "https://$API_ID.execute-api.ap-northeast-1.amazonaws.com/prod/api/v1/search" -d '{"terms":["words", "you", "wanna", "search"]}'
+$ npm install
+$ npm run build
+$ cdk deploy
 ```
 
 ## Development
