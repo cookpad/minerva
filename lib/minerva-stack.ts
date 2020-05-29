@@ -45,6 +45,14 @@ function getMetaTable(scope: cdk.Construct, metaTableName?: string) {
 }
 
 export class MinervaStack extends cdk.Stack {
+  indexerQueue: sqs.Queue;
+  partitionQueue: sqs.Queue;
+  mergeQueue: sqs.Queue;
+  indexer: lambda.Function;
+  merger: lambda.Function;
+  partitioner: lambda.Function;
+  metaTable: dynamodb.ITable;
+
   constructor(
     scope: cdk.Construct,
     id: string,
@@ -78,21 +86,21 @@ export class MinervaStack extends cdk.Stack {
     const running = args.running || true;
 
     // DynamoDB
-    const metaTable = getMetaTable(this, args.metaTableName);
+    this.metaTable = getMetaTable(this, args.metaTableName);
 
     // SQS
-    const indexerQueue = new sqs.Queue(this, "indexerQueue", {
+    this.indexerQueue = new sqs.Queue(this, "indexerQueue", {
       visibilityTimeout: cdk.Duration.seconds(600),
     });
-    dataTopic.addSubscription(new SqsSubscription(indexerQueue));
+    dataTopic.addSubscription(new SqsSubscription(this.indexerQueue));
 
-    const mergeQueue = new sqs.Queue(this, "mergeQueue", {
+    this.mergeQueue = new sqs.Queue(this, "mergeQueue", {
       visibilityTimeout: cdk.Duration.seconds(450),
     });
-    const partitionQueue = new sqs.Queue(this, "partitionQueue");
+    this.partitionQueue = new sqs.Queue(this, "partitionQueue");
 
     // Lambda Functions
-    const indexer = new lambda.Function(this, "indexer", {
+    this.indexer = new lambda.Function(this, "indexer", {
       runtime: lambda.Runtime.GO_1_X,
       handler: "indexer",
       code: buildPath,
@@ -105,14 +113,14 @@ export class MinervaStack extends cdk.Stack {
         S3_PREFIX: args.dataS3Prefix,
         INDEX_TABLE_NAME: indexTableName,
         MESSAGE_TABLE_NAME: messageTableName,
-        META_TABLE_NAME: metaTable.tableName,
-        PARTITION_QUEUE: partitionQueue.queueUrl,
+        META_TABLE_NAME: this.metaTable.tableName,
+        PARTITION_QUEUE: this.partitionQueue.queueUrl,
       },
       reservedConcurrentExecutions: args.concurrentExecution,
     });
     if (running) {
-      indexer.addEventSource(
-        new SqsEventSource(indexerQueue, { batchSize: 1 })
+      this.indexer.addEventSource(
+        new SqsEventSource(this.indexerQueue, { batchSize: 1 })
       );
     }
 
@@ -127,7 +135,7 @@ export class MinervaStack extends cdk.Stack {
         S3_REGION: args.dataS3Region,
         S3_BUCKET: args.dataS3Bucket,
         S3_PREFIX: args.dataS3Prefix,
-        MERGE_QUEUE: mergeQueue.queueUrl,
+        MERGE_QUEUE: this.mergeQueue.queueUrl,
       },
       reservedConcurrentExecutions: args.concurrentExecution,
     });
@@ -136,7 +144,7 @@ export class MinervaStack extends cdk.Stack {
       targets: [new eventTargets.LambdaFunction(listIndexObject)],
     });
 
-    const mergeIndexObject = new lambda.Function(this, "mergeIndexObject", {
+    this.merger = new lambda.Function(this, "mergeIndexObject", {
       runtime: lambda.Runtime.GO_1_X,
       handler: "mergeIndexObject",
       code: buildPath,
@@ -144,10 +152,10 @@ export class MinervaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(450),
       memorySize: 2048,
       reservedConcurrentExecutions: args.concurrentExecution,
-      events: [new SqsEventSource(mergeQueue, { batchSize: 1 })],
+      events: [new SqsEventSource(this.mergeQueue, { batchSize: 1 })],
     });
 
-    const makePartition = new lambda.Function(this, "makePartition", {
+    this.partitioner = new lambda.Function(this, "makePartition", {
       runtime: lambda.Runtime.GO_1_X,
       handler: "makePartition",
       code: buildPath,
@@ -157,12 +165,12 @@ export class MinervaStack extends cdk.Stack {
       environment: {
         ATHENA_DB_NAME: args.athenaDatabaseName,
         OBJECT_TABLE_NAME: indexTableName,
-        META_TABLE_NAME: metaTable.tableName,
+        META_TABLE_NAME: this.metaTable.tableName,
         S3_BUCKET: args.dataS3Bucket,
         S3_PREFIX: args.dataS3Prefix,
       },
       reservedConcurrentExecutions: args.concurrentExecution,
-      events: [new SqsEventSource(partitionQueue, { batchSize: 1 })],
+      events: [new SqsEventSource(this.partitionQueue, { batchSize: 1 })],
     });
 
     const indexDB = new glue.Database(this, "indexDB", {
@@ -216,7 +224,7 @@ export class MinervaStack extends cdk.Stack {
         ATHENA_DB_NAME: indexDB.databaseName,
         INDEX_TABLE_NAME: indexTableName,
         MESSAGE_TABLE_NAME: messageTableName,
-        META_TABLE_NAME: metaTable.tableName,
+        META_TABLE_NAME: this.metaTable.tableName,
       },
     });
 
