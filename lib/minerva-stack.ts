@@ -137,7 +137,7 @@ export class MinervaStack extends cdk.Stack {
         S3_PREFIX: args.dataS3Prefix,
         MERGE_QUEUE: this.mergeQueue.queueUrl,
       },
-      reservedConcurrentExecutions: args.concurrentExecution,
+      reservedConcurrentExecutions: 1,
     });
     new events.Rule(this, "ListIndexEvery10min", {
       schedule: events.Schedule.rate(cdk.Duration.minutes(10)),
@@ -169,7 +169,7 @@ export class MinervaStack extends cdk.Stack {
         S3_BUCKET: args.dataS3Bucket,
         S3_PREFIX: args.dataS3Prefix,
       },
-      reservedConcurrentExecutions: args.concurrentExecution,
+      reservedConcurrentExecutions: 1,
       events: [new SqsEventSource(this.partitionQueue, { batchSize: 1 })],
     });
 
