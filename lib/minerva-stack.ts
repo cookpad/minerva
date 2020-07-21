@@ -115,6 +115,8 @@ export class MinervaStack extends cdk.Stack {
         MESSAGE_TABLE_NAME: messageTableName,
         META_TABLE_NAME: this.metaTable.tableName,
         PARTITION_QUEUE: this.partitionQueue.queueUrl,
+        SENTRY_DSN: args.sentryDSN ? args.sentryDSN : "",
+        SENTRY_ENVIRONMENT: args.sentryEnv ? args.sentryEnv : "",
       },
       reservedConcurrentExecutions: args.concurrentExecution,
     });
@@ -136,6 +138,8 @@ export class MinervaStack extends cdk.Stack {
         S3_BUCKET: args.dataS3Bucket,
         S3_PREFIX: args.dataS3Prefix,
         MERGE_QUEUE: this.mergeQueue.queueUrl,
+        SENTRY_DSN: args.sentryDSN ? args.sentryDSN : "",
+        SENTRY_ENVIRONMENT: args.sentryEnv ? args.sentryEnv : "",
       },
       reservedConcurrentExecutions: 1,
     });
@@ -153,6 +157,10 @@ export class MinervaStack extends cdk.Stack {
       memorySize: 2048,
       reservedConcurrentExecutions: args.concurrentExecution,
       events: [new SqsEventSource(this.mergeQueue, { batchSize: 1 })],
+      environment: {
+        SENTRY_DSN: args.sentryDSN ? args.sentryDSN : "",
+        SENTRY_ENVIRONMENT: args.sentryEnv ? args.sentryEnv : "",
+      },
     });
 
     this.partitioner = new lambda.Function(this, "makePartition", {
@@ -168,6 +176,8 @@ export class MinervaStack extends cdk.Stack {
         META_TABLE_NAME: this.metaTable.tableName,
         S3_BUCKET: args.dataS3Bucket,
         S3_PREFIX: args.dataS3Prefix,
+        SENTRY_DSN: args.sentryDSN ? args.sentryDSN : "",
+        SENTRY_ENVIRONMENT: args.sentryEnv ? args.sentryEnv : "",
       },
       reservedConcurrentExecutions: 1,
       events: [new SqsEventSource(this.partitionQueue, { batchSize: 1 })],
