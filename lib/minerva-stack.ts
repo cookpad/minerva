@@ -179,7 +179,7 @@ export class MinervaStack extends cdk.Stack {
         SENTRY_DSN: args.sentryDSN ? args.sentryDSN : "",
         SENTRY_ENVIRONMENT: args.sentryEnv ? args.sentryEnv : "",
       },
-      reservedConcurrentExecutions: 1,
+      reservedConcurrentExecutions: args.concurrentExecution,
       events: [new SqsEventSource(this.partitionQueue, { batchSize: 1 })],
     });
 
