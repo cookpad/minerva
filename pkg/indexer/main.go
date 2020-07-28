@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/m-mizutani/minerva/internal"
@@ -15,6 +16,8 @@ import (
 var logger = internal.Logger
 
 func handleEvent(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
+	logger.WithField("event", sqsEvent).Info("Star handleEvent")
+
 	for _, sqsRecord := range sqsEvent.Records {
 		var snsEntity events.SNSEntity
 		if err := json.Unmarshal([]byte(sqsRecord.Body), &snsEntity); err != nil {
@@ -48,6 +51,10 @@ func handleEvent(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Re
 					Prefix: os.Getenv("S3_PREFIX"),
 				},
 				Reader: reader,
+			}
+			if s3record.S3.Object.Key == "" || strings.HasSuffix(s3record.S3.Object.Key, "/") {
+				logger.WithField("s3", s3record).Warn("No key of S3 object OR invalid object key")
+				continue
 			}
 			args.Src.SetKey(s3record.S3.Object.Key)
 
