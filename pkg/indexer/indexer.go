@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -17,7 +18,7 @@ type arguments struct {
 	IndexTable     string
 	MessageTable   string
 	MetaTable      string
-	ObjectQueue    string
+	ComposeQueue   string
 	PartitionQueue string
 	BaseRegion     string
 	Src            s3Loc
@@ -41,7 +42,6 @@ func makeIndex(args arguments) error {
 	}
 
 	for _, dumper := range dumpers {
-
 		for _, f := range dumper.Files() {
 			dst := f.dst
 			dst.Bucket = args.Dst.Bucket
@@ -64,6 +64,20 @@ func makeIndex(args arguments) error {
 			if err := internal.SendSQS(&partQueue, args.BaseRegion, args.PartitionQueue); err != nil {
 				return errors.Wrap(err, "Fail to send parition queue")
 			}
+
+			composeQueue := models.ComposeQueue{
+				S3Region:  args.Dst.Region,
+				S3Bucket:  dst.Bucket,
+				S3Key:     dst.S3Key(),
+				Size:      f.dataSize,
+				Type:      dumper.Type(),
+				Partition: dst.Partition(),
+			}
+			logger.WithField("q", composeQueue).Info("Compose queue")
+			if err := internal.SendSQS(&composeQueue, args.BaseRegion, args.ComposeQueue); err != nil {
+				return errors.Wrap(err, "Fail to send parition queue")
+			}
+
 		}
 	}
 

@@ -9,7 +9,10 @@ import * as glue from "@aws-cdk/aws-glue";
 import * as apigateway from "@aws-cdk/aws-apigateway";
 
 import { SqsSubscription } from "@aws-cdk/aws-sns-subscriptions";
-import { SqsEventSource } from "@aws-cdk/aws-lambda-event-sources";
+import {
+  SqsEventSource,
+  DynamoEventSource,
+} from "@aws-cdk/aws-lambda-event-sources";
 
 const eventTargets = require("@aws-cdk/aws-events-targets");
 import * as events from "@aws-cdk/aws-events";
@@ -30,21 +33,6 @@ interface MinervaProperties extends cdk.StackProps {
   readonly sentryEnv?: string;
   readonly logLevel?: string;
   readonly concurrentExecution?: number;
-  readonly running?: boolean;
-}
-
-function getMetaTable(scope: cdk.Construct, metaTableName?: string) {
-  const id = "metaTable";
-  if (metaTableName !== undefined) {
-    return dynamodb.Table.fromTableName(scope, id, metaTableName);
-  } else {
-    return new dynamodb.Table(scope, id, {
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
-      timeToLiveAttribute: "expires_at",
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-    });
-  }
 }
 
 export class MinervaStack extends cdk.Stack {
@@ -52,12 +40,18 @@ export class MinervaStack extends cdk.Stack {
   readonly indexerQueue: sqs.Queue;
   readonly partitionQueue: sqs.Queue;
   readonly mergeQueue: sqs.Queue;
+  readonly composeQueue: sqs.Queue;
 
   // Lambda functions
   readonly indexer: lambda.Function;
   readonly merger: lambda.Function;
   readonly partitioner: lambda.Function;
+  readonly composer: lambda.Function;
+  readonly dispatcher: lambda.Function;
+
+  // DynamoDB table
   readonly metaTable: dynamodb.ITable;
+  readonly chunkTable: dynamodb.Table;
 
   constructor(scope: cdk.Construct, id: string, props: MinervaProperties) {
     super(scope, id, props);
@@ -84,14 +78,22 @@ export class MinervaStack extends cdk.Stack {
     const buildPath = lambda.Code.asset(path.join(__dirname, "../build"));
     const indexTableName = "indices";
     const messageTableName = "messages";
-    const running = props.running || true;
+
+    const indexerTimeout = cdk.Duration.seconds(600);
+    const composerTimeout = cdk.Duration.seconds(60);
 
     // DynamoDB
     this.metaTable = getMetaTable(this, props.metaTableName);
+    this.chunkTable = new dynamodb.Table(this, "chunkTable", {
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      stream: dynamodb.StreamViewType.NEW_IMAGE,
+    });
 
     // SQS
     this.indexerQueue = new sqs.Queue(this, "indexerQueue", {
-      visibilityTimeout: cdk.Duration.seconds(600),
+      visibilityTimeout: indexerTimeout,
     });
     dataTopic.addSubscription(new SqsSubscription(this.indexerQueue));
 
@@ -99,6 +101,28 @@ export class MinervaStack extends cdk.Stack {
       visibilityTimeout: cdk.Duration.seconds(450),
     });
     this.partitionQueue = new sqs.Queue(this, "partitionQueue");
+    this.composeQueue = new sqs.Queue(this, "composeQueue", {
+      visibilityTimeout: composerTimeout,
+    });
+
+    const defaultEnvVars = {
+      // From arguments
+      ATHENA_DB_NAME: props.athenaDatabaseName,
+      S3_REGION: props.dataS3Region,
+      S3_BUCKET: props.dataS3Bucket,
+      S3_PREFIX: props.dataS3Prefix,
+      INDEX_TABLE_NAME: indexTableName,
+      MESSAGE_TABLE_NAME: messageTableName,
+      SENTRY_DSN: props.sentryDSN || "",
+      SENTRY_ENVIRONMENT: props.sentryEnv || "",
+      LOG_LEVEL: props.logLevel || "INFO",
+
+      // From resource
+      META_TABLE_NAME: this.metaTable.tableName,
+      PARTITION_QUEUE_URL: this.partitionQueue.queueUrl,
+      COMPOSE_QUEUE_URL: this.composeQueue.queueUrl,
+      MERGE_QUEUE_URL: this.mergeQueue.queueUrl,
+    };
 
     // Lambda Functions
     this.indexer = new lambda.Function(this, "indexer", {
@@ -106,47 +130,45 @@ export class MinervaStack extends cdk.Stack {
       handler: "indexer",
       code: lambda.Code.asset("./build"), // indexer should be built in ./build of CWD.
       role: lambdaRole,
-      timeout: cdk.Duration.seconds(600),
+      timeout: indexerTimeout,
       memorySize: 2048,
-      environment: {
-        S3_REGION: props.dataS3Region,
-        S3_BUCKET: props.dataS3Bucket,
-        S3_PREFIX: props.dataS3Prefix,
-        INDEX_TABLE_NAME: indexTableName,
-        MESSAGE_TABLE_NAME: messageTableName,
-        META_TABLE_NAME: this.metaTable.tableName,
-        PARTITION_QUEUE: this.partitionQueue.queueUrl,
-        SENTRY_DSN: props.sentryDSN ? props.sentryDSN : "",
-        SENTRY_ENVIRONMENT: props.sentryEnv ? props.sentryEnv : "",
-      },
+      environment: defaultEnvVars,
       reservedConcurrentExecutions: props.concurrentExecution,
     });
-    if (running) {
-      this.indexer.addEventSource(
-        new SqsEventSource(this.indexerQueue, { batchSize: 1 })
-      );
-    }
+    this.indexer.addEventSource(
+      new SqsEventSource(this.indexerQueue, { batchSize: 1 })
+    );
 
-    const listIndexObject = new lambda.Function(this, "listIndexObject", {
+    this.composer = new lambda.Function(this, "composer", {
       runtime: lambda.Runtime.GO_1_X,
-      handler: "listIndexObject",
+      handler: "composer",
+      code: buildPath,
+      role: lambdaRole,
+      timeout: composerTimeout,
+      memorySize: 128,
+      environment: defaultEnvVars,
+      reservedConcurrentExecutions: 1,
+      events: [new SqsEventSource(this.composeQueue, { batchSize: 1 })],
+    });
+
+    this.dispatcher = new lambda.Function(this, "dispatcher", {
+      runtime: lambda.Runtime.GO_1_X,
+      handler: "dispatcher",
       code: buildPath,
       role: lambdaRole,
       timeout: cdk.Duration.seconds(300),
-      memorySize: 1024,
-      environment: {
-        S3_REGION: props.dataS3Region,
-        S3_BUCKET: props.dataS3Bucket,
-        S3_PREFIX: props.dataS3Prefix,
-        MERGE_QUEUE: this.mergeQueue.queueUrl,
-        SENTRY_DSN: props.sentryDSN ? props.sentryDSN : "",
-        SENTRY_ENVIRONMENT: props.sentryEnv ? props.sentryEnv : "",
-      },
+      memorySize: 128,
+      environment: defaultEnvVars,
       reservedConcurrentExecutions: 1,
+      events: [
+        new DynamoEventSource(this.chunkTable, {
+          startingPosition: lambda.StartingPosition.LATEST,
+        }),
+      ],
     });
-    new events.Rule(this, "ListIndexEvery10min", {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(10)),
-      targets: [new eventTargets.LambdaFunction(listIndexObject)],
+    new events.Rule(this, "PeriodicDispatch", {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+      targets: [new eventTargets.LambdaFunction(this.dispatcher)],
     });
 
     this.merger = new lambda.Function(this, "mergeIndexObject", {
@@ -158,10 +180,7 @@ export class MinervaStack extends cdk.Stack {
       memorySize: 2048,
       reservedConcurrentExecutions: props.concurrentExecution,
       events: [new SqsEventSource(this.mergeQueue, { batchSize: 1 })],
-      environment: {
-        SENTRY_DSN: props.sentryDSN ? props.sentryDSN : "",
-        SENTRY_ENVIRONMENT: props.sentryEnv ? props.sentryEnv : "",
-      },
+      environment: defaultEnvVars,
     });
 
     this.partitioner = new lambda.Function(this, "makePartition", {
@@ -171,15 +190,7 @@ export class MinervaStack extends cdk.Stack {
       role: lambdaRole,
       timeout: cdk.Duration.seconds(30),
       memorySize: 2048,
-      environment: {
-        ATHENA_DB_NAME: props.athenaDatabaseName,
-        OBJECT_TABLE_NAME: indexTableName,
-        META_TABLE_NAME: this.metaTable.tableName,
-        S3_BUCKET: props.dataS3Bucket,
-        S3_PREFIX: props.dataS3Prefix,
-        SENTRY_DSN: props.sentryDSN ? props.sentryDSN : "",
-        SENTRY_ENVIRONMENT: props.sentryEnv ? props.sentryEnv : "",
-      },
+      environment: defaultEnvVars,
       reservedConcurrentExecutions: props.concurrentExecution,
       events: [new SqsEventSource(this.partitionQueue, { batchSize: 1 })],
     });
@@ -228,15 +239,7 @@ export class MinervaStack extends cdk.Stack {
       role: lambdaRole,
       timeout: cdk.Duration.seconds(120),
       memorySize: 2048,
-      environment: {
-        S3_REGION: props.dataS3Region,
-        S3_BUCKET: props.dataS3Bucket,
-        S3_PREFIX: props.dataS3Prefix,
-        ATHENA_DB_NAME: indexDB.databaseName,
-        INDEX_TABLE_NAME: indexTableName,
-        MESSAGE_TABLE_NAME: messageTableName,
-        META_TABLE_NAME: this.metaTable.tableName,
-      },
+      environment: defaultEnvVars,
     });
 
     const api = new apigateway.LambdaRestApi(this, "minervaAPI", {
@@ -270,4 +273,19 @@ export class MinervaStack extends cdk.Stack {
       .addResource("timeseries")
       .addMethod("GET", undefined, apiOption);
   }
+}
+
+function getMetaTable(scope: cdk.Construct, metaTableName?: string) {
+  const id = "metaTable";
+  if (metaTableName !== undefined) {
+    return dynamodb.Table.fromTableName(scope, id, metaTableName);
+  }
+
+  return new dynamodb.Table(scope, id, {
+    partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+    sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+    timeToLiveAttribute: "expires_at",
+    billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+    stream: dynamodb.StreamViewType.NEW_IMAGE,
+  });
 }

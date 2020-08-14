@@ -2,7 +2,15 @@ CODE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 CWD := ${CURDIR}
 
 BIN_DIR := $(CODE_DIR)/build
-BINPATH := $(BIN_DIR)/makePartition $(BIN_DIR)/listIndexObject $(BIN_DIR)/mergeIndexObject $(BIN_DIR)/apiHandler $(BIN_DIR)/errorHandler
+BINPATH := \
+	$(BIN_DIR)/makePartition \
+	$(BIN_DIR)/listIndexObject \
+	$(BIN_DIR)/mergeIndexObject \
+	$(BIN_DIR)/apiHandler \
+	$(BIN_DIR)/composer \
+	$(BIN_DIR)/dispatcher \
+	$(BIN_DIR)/errorHandler
+
 SRC := $(CODE_DIR)/internal/*.go $(CODE_DIR)/pkg/*/*.go
 
 all: build
@@ -18,6 +26,10 @@ $(BIN_DIR)/listIndexObject: $(CODE_DIR)/lambda/listIndexObject/*.go $(SRC)
 	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/listIndexObject $(CODE_DIR)/lambda/listIndexObject && cd $(CWD)
 $(BIN_DIR)/mergeIndexObject: $(CODE_DIR)/lambda/mergeIndexObject/*.go $(SRC)
 	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/mergeIndexObject $(CODE_DIR)/lambda/mergeIndexObject && cd $(CWD)
+$(BIN_DIR)/composer: $(CODE_DIR)/lambda/composer/*.go $(SRC)
+	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/composer $(CODE_DIR)/lambda/composer && cd $(CWD)
+$(BIN_DIR)/dispatcher: $(CODE_DIR)/lambda/dispatcher/*.go $(SRC)
+	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/dispatcher $(CODE_DIR)/lambda/dispatcher && cd $(CWD)
 $(BIN_DIR)/apiHandler: $(CODE_DIR)/lambda/apiHandler/*.go $(SRC)
 	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/apiHandler $(CODE_DIR)/lambda/apiHandler && cd $(CWD)
 $(BIN_DIR)/errorHandler: $(CODE_DIR)/lambda/errorHandler/*.go $(SRC)

@@ -37,8 +37,8 @@ func handleEvent(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Re
 				MessageTable: os.Getenv("MESSAGE_TABLE_NAME"),
 
 				MetaTable:      os.Getenv("META_TABLE_NAME"),
-				ObjectQueue:    os.Getenv("OBJECT_QUEUE"),
-				PartitionQueue: os.Getenv("PARTITION_QUEUE"),
+				ComposeQueue:   os.Getenv("COMPOSE_QUEUE_URL"),
+				PartitionQueue: os.Getenv("PARTITION_QUEUE_URL"),
 				BaseRegion:     os.Getenv("AWS_REGION"),
 
 				Src: s3Loc{

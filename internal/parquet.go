@@ -86,11 +86,21 @@ type ParquetLocation struct {
 
 // S3Key returns full S3 key of the parquet object on S3.
 func (x ParquetLocation) S3Key() string {
-	key := x.Prefix + strings.Join([]string{
-		x.schemaName(),
-		x.Partition(),
-		string(x.MergeStat),
-	}, "/")
+	var key string
+	switch x.MergeStat {
+	case ParquetMergeStatMerged:
+		key = x.Prefix + strings.Join([]string{
+			x.schemaName(),
+			x.Partition(),
+			string(x.MergeStat),
+		}, "/")
+	case ParquetMergeStatUnmerged:
+		key = x.Prefix + strings.Join([]string{
+			"raw",
+			x.Partition(),
+			string(x.MergeStat),
+		}, "/")
+	}
 
 	if x.SrcBucket != "" {
 		key += "/" + x.SrcBucket

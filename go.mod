@@ -3,6 +3,7 @@ module github.com/m-mizutani/minerva
 go 1.13
 
 require (
+	github.com/Netflix/go-env v0.0.0-20200803161858-92715955ff70
 	github.com/apache/thrift v0.13.0 // indirect
 	github.com/aws/aws-lambda-go v1.15.0
 	github.com/aws/aws-sdk-go v1.29.32
