@@ -97,6 +97,7 @@ func (x ParquetLocation) S3Key() string {
 	case ParquetMergeStatUnmerged:
 		key = x.Prefix + strings.Join([]string{
 			"raw",
+			x.schemaName(),
 			x.Partition(),
 			string(x.MergeStat),
 		}, "/")

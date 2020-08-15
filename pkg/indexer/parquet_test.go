@@ -73,7 +73,8 @@ func TestCreateParquet(t *testing.T) {
 		},
 	}
 
-	ch := indexer.TestLoadMessage(indexer.NewS3Loc("ap-northeast-1", "src-bucket", "k1.json"), queues)
+	srcObj := internal.NewS3Object("ap-northeast-1", "src-bucket", "k1.json")
+	ch := indexer.TestLoadMessage(srcObj, queues)
 
 	meta := newDummyMeta()
 	dumpers, err := indexer.DumpParquetFiles(ch, meta)
@@ -91,7 +92,7 @@ func TestCreateParquet(t *testing.T) {
 	dst := idxFiles[0].Dst()
 	dst.Bucket = "dst-bucket"
 	dst.Prefix = "dst-prefix/"
-	assert.Equal(t, "dst-prefix/indices/dt=2019-09-18-23/unmerged/src-bucket/k1.json.parquet", dst.S3Key())
+	assert.Equal(t, "dst-prefix/raw/indices/dt=2019-09-18-23/unmerged/src-bucket/k1.json.parquet", dst.S3Key())
 	assert.Equal(t, "s3://dst-bucket/dst-prefix/indices/dt=2019-09-18-23/", dst.PartitionLocation())
 
 	///read
@@ -152,7 +153,7 @@ func TestSplitLargeParquetFiles(t *testing.T) {
 		Data   string
 	}
 
-	src := indexer.NewS3Loc("ap-northeast-1", "src-bucket", "k1.json")
+	src := internal.NewS3Object("ap-northeast-1", "src-bucket", "k1.json")
 	input := make(chan *indexer.LogQueue, 1024)
 	ch := indexer.TestLoadMessageChannel(src, input)
 

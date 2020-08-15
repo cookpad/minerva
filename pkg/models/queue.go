@@ -6,6 +6,6 @@ type ComposeQueue struct {
 	S3Bucket  string `json:"s3_bucket"`
 	S3Key     string `json:"s3_key"`
 	Size      int    `json:"size"`
-	Type      string `json:"type"`
+	Schema    string `json:"schema"`
 	Partition string `json:"partition"`
 }

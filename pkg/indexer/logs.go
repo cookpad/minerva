@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 )
@@ -15,19 +16,19 @@ type logQueue struct {
 	Message   string
 	Value     interface{}
 	Seq       int32
-	Src       s3Loc
+	Src       internal.S3Object
 }
 
-// LoadMessage load log data from S3 bucket
-func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
+// makeLogChannel loads log data from S3 bucket
+func makeLogChannel(src internal.S3Object, reader *rlogs.Reader) chan *logQueue {
 	ch := make(chan *logQueue, indexQueueSize)
 
 	go func() {
 		defer close(ch)
 
 		for log := range reader.Read(&rlogs.AwsS3LogSource{
-			Region: src.Region,
-			Bucket: src.Bucket,
+			Region: src.Region(),
+			Bucket: src.Bucket(),
 			Key:    src.Key(),
 		}) {
 			if log.Error != nil {
@@ -41,8 +42,7 @@ func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
 				return
 			}
 
-			q := new(logQueue)
-			*q = logQueue{
+			ch <- &logQueue{
 				Message:   string(raw),
 				Timestamp: log.Log.Timestamp,
 				Value:     log.Log.Values,
@@ -50,7 +50,6 @@ func LoadMessage(src s3Loc, reader *rlogs.Reader) chan *logQueue {
 				Seq:       int32(log.Log.Seq),
 				Src:       src,
 			}
-			ch <- q
 		}
 	}()
 

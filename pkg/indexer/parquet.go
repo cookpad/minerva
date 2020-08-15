@@ -34,7 +34,7 @@ func newPqLoc(q *logQueue) (msgDst, idxDst internal.ParquetLocation) {
 	dst := internal.ParquetLocation{
 		MergeStat: internal.ParquetMergeStatUnmerged,
 		Timestamp: q.Timestamp,
-		SrcBucket: q.Src.Bucket,
+		SrcBucket: q.Src.Bucket(),
 		SrcKey:    q.Src.Key(),
 	}
 
@@ -47,8 +47,7 @@ func newPqLoc(q *logQueue) (msgDst, idxDst internal.ParquetLocation) {
 	return
 }
 
-// DumpParquetFiles dump log data to local parquet files
-func DumpParquetFiles(ch chan *logQueue, meta internal.MetaAccessor) ([]dumper, error) {
+func dumpParquetFiles(ch chan *logQueue, meta internal.MetaAccessor) ([]dumper, error) {
 	dumperMap := dumpers{}
 
 	for q := range ch {
@@ -56,7 +55,7 @@ func DumpParquetFiles(ch chan *logQueue, meta internal.MetaAccessor) ([]dumper, 
 			return nil, errors.Wrap(q.Err, "Fail to receive queue")
 		}
 
-		objID, err := meta.GetObjecID(q.Src.Bucket, q.Src.Key())
+		objID, err := meta.GetObjecID(q.Src.Bucket(), q.Src.Key())
 		if err != nil {
 			return nil, err
 		}

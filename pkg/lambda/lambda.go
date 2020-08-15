@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/Netflix/go-env"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
@@ -46,9 +45,7 @@ func StartHandler(handler Handler) {
 		defer internal.FlushError()
 
 		var args HandlerArguments
-		_, err := env.UnmarshalFromEnviron(&args)
-		if err != nil {
-			Logger.WithError(err).Error("Failed UnmarshalFromEviron")
+		if err := args.BindVars(); err != nil {
 			internal.HandleError(err)
 			return err
 		}

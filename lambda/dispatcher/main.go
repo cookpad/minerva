@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/m-mizutani/minerva/lambda"
+	"github.com/m-mizutani/minerva/pkg/lambda"
 )
 
 var logger = lambda.Logger

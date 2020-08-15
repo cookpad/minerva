@@ -7,6 +7,7 @@ var (
 
 	TestLoadMessage        = testLoadMessage
 	TestLoadMessageChannel = testLoadMessageChannel
+	DumpParquetFiles       = dumpParquetFiles
 )
 
 var Logger = logger
@@ -22,13 +23,13 @@ func LookupValue(kvList []keyValuePair, key string) interface{} {
 	return nil
 }
 
-func testLoadMessage(loc s3Loc, queues []*LogQueue) chan *logQueue {
+func testLoadMessage(obj internal.S3Object, queues []*LogQueue) chan *logQueue {
 	ch := make(chan *logQueue, 128)
 	go func() {
 		defer close(ch)
 
 		for _, q := range queues {
-			q.Src = loc
+			q.Src = obj
 			ch <- (*logQueue)(q)
 		}
 	}()
@@ -36,13 +37,13 @@ func testLoadMessage(loc s3Loc, queues []*LogQueue) chan *logQueue {
 	return ch
 }
 
-func testLoadMessageChannel(loc s3Loc, input chan *LogQueue) chan *logQueue {
+func testLoadMessageChannel(obj internal.S3Object, input chan *LogQueue) chan *logQueue {
 	ch := make(chan *logQueue, 128)
 	go func() {
 		defer close(ch)
 
 		for q := range input {
-			q.Src = loc
+			q.Src = obj
 			ch <- (*logQueue)(q)
 		}
 	}()

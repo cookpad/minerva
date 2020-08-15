@@ -119,7 +119,8 @@ func TestS3PutObject(t *testing.T) {
 	fd.Write([]byte("five timeless words"))
 
 	filePath := fd.Name()
-	err = internal.UploadFileToS3(filePath, "dokoka", "nanika", "sowaka.txt")
+	dst := internal.NewS3Object("dokoka", "nanika", "sowaka.txt")
+	err = internal.UploadFileToS3(filePath, dst)
 	require.NoError(t, err)
 
 	assert.Equal(t, "nanika", dummy.bucket)

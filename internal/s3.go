@@ -5,7 +5,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -28,19 +30,52 @@ func newAwsS3Client(region string) s3Client {
 	return s3.New(ssn)
 }
 
+type S3Object struct {
+	region string
+	bucket string
+	key    string
+}
+
+func NewS3Object(region, bucket, key string) S3Object {
+	return S3Object{
+		region: region,
+		bucket: bucket,
+		key:    key,
+	}
+}
+
+func NewS3ObjectFromRecord(record events.S3EventRecord) S3Object {
+	return S3Object{
+		region: record.AWSRegion,
+		bucket: record.S3.Bucket.Name,
+		key:    record.S3.Object.Key,
+	}
+}
+
+func (x *S3Object) Region() string { return x.region }
+func (x *S3Object) Bucket() string { return x.bucket }
+func (x *S3Object) Key() string    { return x.key }
+func (x *S3Object) AppendKey(append string) {
+	if strings.HasSuffix(x.key, "/") {
+		x.key += append
+	} else {
+		x.key += "/" + append
+	}
+}
+
 // UploadFileToS3 upload a specified local file to S3
-func UploadFileToS3(filePath, s3region, s3bucket, s3key string) error {
+func UploadFileToS3(filePath string, dst S3Object) error {
 	fd, err := os.Open(filePath)
 	if err != nil {
 		return errors.Wrapf(err, "Fail to open a parquet file: %s", filePath)
 	}
 	defer fd.Close()
 
-	client := newS3Client(s3region)
+	client := newS3Client(dst.Region())
 	input := &s3.PutObjectInput{
 		Body:   fd,
-		Bucket: &s3bucket,
-		Key:    &s3key,
+		Bucket: aws.String(dst.Bucket()),
+		Key:    aws.String(dst.Key()),
 	}
 
 	resp, err := client.PutObject(input)
@@ -48,17 +83,17 @@ func UploadFileToS3(filePath, s3region, s3bucket, s3key string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				return errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", s3bucket, s3key)
+				return errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", dst.Bucket(), dst.Key())
 			}
 		} else {
-			return errors.Wrapf(aerr, "Fail to upload a parquet file in https: %s/%s", s3bucket, s3key)
+			return errors.Wrapf(aerr, "Fail to upload a parquet file in https: %s/%s", dst.Bucket(), dst.Key())
 		}
 	}
 
 	Logger.WithFields(logrus.Fields{
 		"resp":   resp,
-		"bucket": s3bucket,
-		"key":    s3key,
+		"bucket": dst.Bucket(),
+		"key":    dst.Key(),
 	}).Debug("Uploaded a parquet file")
 
 	return nil

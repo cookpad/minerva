@@ -211,7 +211,8 @@ func mergeParquet(args arguments) error {
 	if mergedFile != nil {
 		defer os.Remove(*mergedFile)
 
-		if err := internal.UploadFileToS3(*mergedFile, args.Queue.DstObject.Region, args.Queue.DstObject.Bucket, args.Queue.DstObject.Key); err != nil {
+		dst := internal.NewS3Object(args.Queue.DstObject.Region, args.Queue.DstObject.Bucket, args.Queue.DstObject.Key)
+		if err := internal.UploadFileToS3(*mergedFile, dst); err != nil {
 			return err
 		}
 	}

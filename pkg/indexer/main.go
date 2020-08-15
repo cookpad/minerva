@@ -8,17 +8,48 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/lambda"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
-var logger = internal.Logger
+var logger = lambda.Logger
 
-func handleEvent(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
-	logger.WithField("event", sqsEvent).Info("Star handleEvent")
+// RunIndexer is main handler of indexer. It requires log reader based on rlogs.
+// Main procedures are in handleEvent() to reduce number of internal.HandleError().
+func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
+	defer internal.FlushError()
 
-	for _, sqsRecord := range sqsEvent.Records {
+	args := arguments{
+		Event:  sqsEvent,
+		Reader: reader,
+	}
+	if err := handleEvent(args); err != nil {
+		internal.HandleError(err)
+		return err
+	}
+
+	return nil
+}
+
+type arguments struct {
+	lambda.EnvVars
+	Event  events.SQSEvent
+	Reader *rlogs.Reader
+}
+
+func handleEvent(args arguments) error {
+	if err := args.BindVars(); err != nil {
+		return err
+	}
+
+	logger.SetFormatter(&logrus.JSONFormatter{})
+	internal.SetLogLevel(args.LogLevel)
+	logger.WithField("event", args.Event).Debug("Start handler")
+
+	for _, sqsRecord := range args.Event.Records {
 		var snsEntity events.SNSEntity
 		if err := json.Unmarshal([]byte(sqsRecord.Body), &snsEntity); err != nil {
 			return errors.Wrapf(err, "Fail to unmarshal SNS event in SQS message: %s", sqsRecord.Body)
@@ -32,34 +63,14 @@ func handleEvent(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Re
 		logger.WithField("s3Event", s3Event).Debug("Received S3 Event")
 
 		for _, s3record := range s3Event.Records {
-			args := arguments{
-				IndexTable:   os.Getenv("INDEX_TABLE_NAME"),
-				MessageTable: os.Getenv("MESSAGE_TABLE_NAME"),
-
-				MetaTable:      os.Getenv("META_TABLE_NAME"),
-				ComposeQueue:   os.Getenv("COMPOSE_QUEUE_URL"),
-				PartitionQueue: os.Getenv("PARTITION_QUEUE_URL"),
-				BaseRegion:     os.Getenv("AWS_REGION"),
-
-				Src: s3Loc{
-					Region: s3record.AWSRegion,
-					Bucket: s3record.S3.Bucket.Name,
-				},
-				Dst: s3Loc{
-					Region: os.Getenv("S3_REGION"),
-					Bucket: os.Getenv("S3_BUCKET"),
-					Prefix: os.Getenv("S3_PREFIX"),
-				},
-				Reader: reader,
-			}
-			if s3record.S3.Object.Key == "" || strings.HasSuffix(s3record.S3.Object.Key, "/") {
+			s3Key := s3record.S3.Object.Key
+			if s3Key == "" || strings.HasSuffix(s3Key, "/") {
 				logger.WithField("s3", s3record).Warn("No key of S3 object OR invalid object key")
 				continue
 			}
-			args.Src.SetKey(s3record.S3.Object.Key)
 
 			logger.WithField("args", args).Info("Start indexer")
-			if err := makeIndex(args); err != nil {
+			if err := makeIndex(args, s3record); err != nil {
 				return errors.Wrap(err, "Fail to create inverted index")
 			}
 		}
@@ -68,27 +79,63 @@ func handleEvent(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Re
 	return nil
 }
 
-// RunIndexer is main handler of indexer. It requires log reader based on rlogs
-func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
-	defer internal.FlushError()
-	logger.SetLevel(logrus.InfoLevel)
-	logger.SetFormatter(&logrus.JSONFormatter{})
-	internal.SetLogLevel(os.Getenv("LOG_LEVEL"))
-	logger.WithField("event", sqsEvent).Debug("Start handler")
+const (
+	indexQueueSize = 128
+)
 
-	if err := handleEvent(ctx, sqsEvent, reader); err != nil {
-		internal.HandleError(err)
-		return err
+// makeIndex is a process for one S3 object to make index file.
+func makeIndex(args arguments, record events.S3EventRecord) error {
+	srcObject := internal.NewS3ObjectFromRecord(record)
+
+	ch := makeLogChannel(srcObject, args.Reader)
+	meta := internal.NewMetaDynamoDB(args.AwsRegion, args.MetaTableName)
+
+	dumpers, err := dumpParquetFiles(ch, meta)
+	logger.WithFields(logrus.Fields{
+		"dumpers": dumpers,
+	}).Debug("Done dump parquet file(s)")
+	if err != nil {
+		return errors.Wrap(err, "Fail to dump parquet")
+	}
+
+	for _, dumper := range dumpers {
+		for _, f := range dumper.Files() {
+			dstObject := internal.NewS3Object(args.S3Region, args.S3Bucket, f.dst.S3Key())
+
+			if err := internal.UploadFileToS3(f.filePath, dstObject); err != nil {
+				logger.WithField("dst", dstObject).Error("internal.UploadFileToS3")
+				return errors.Wrapf(err, "Failed UploadFileToS3")
+			}
+
+			if err := os.Remove(f.filePath); err != nil {
+				return errors.Wrapf(err, "Fail to remove dump file: %s", f.filePath)
+			}
+
+			partQueue := internal.PartitionQueue{
+				Location:  f.dst.PartitionLocation(),
+				TableName: f.dst.TableName(),
+				Keys:      f.dst.PartitionKeys(),
+			}
+			logger.WithField("q", partQueue).Info("Partition queue")
+			if err := internal.SendSQS(&partQueue, args.AwsRegion, args.PartitionQueueURL); err != nil {
+				return errors.Wrap(err, "Fail to send parition queue")
+			}
+
+			composeQueue := models.ComposeQueue{
+				S3Region:  args.S3Region,
+				S3Bucket:  dstObject.Bucket(),
+				S3Key:     dstObject.Key(),
+				Size:      f.dataSize,
+				Schema:    dumper.Type(),
+				Partition: f.dst.Partition(),
+			}
+			logger.WithField("q", composeQueue).Info("Compose queue")
+			if err := internal.SendSQS(&composeQueue, args.AwsRegion, args.ComposeQueueURL); err != nil {
+				return errors.Wrap(err, "Fail to send parition queue")
+			}
+
+		}
 	}
 
 	return nil
 }
-
-/*
-func main() {
-	logger.SetLevel(logrus.InfoLevel)
-	logger.SetFormatter(&logrus.JSONFormatter{})
-	internal.SetLogLevel(os.Getenv("LOG_LEVEL"))
-	lambda.Start(handleRequest)
-}
-*/
