@@ -81,7 +81,7 @@ type ParquetLocation struct {
 	Timestamp    time.Time
 	SrcBucket    string
 	SrcKey       string
-	FileNameSlat string
+	FileNameSalt string
 }
 
 // S3Key returns full S3 key of the parquet object on S3.
@@ -99,7 +99,6 @@ func (x ParquetLocation) S3Key() string {
 			"raw",
 			x.schemaName(),
 			x.Partition(),
-			string(x.MergeStat),
 		}, "/")
 	}
 
@@ -110,8 +109,8 @@ func (x ParquetLocation) S3Key() string {
 	key += "/" + x.SrcKey
 	if !strings.HasSuffix(key, ".parquet") {
 		// Avoid file name conflict.
-		if x.FileNameSlat != "" {
-			v := x.SrcKey + x.FileNameSlat
+		if x.FileNameSalt != "" {
+			v := x.SrcKey + x.FileNameSalt
 			h := sha1.New()
 			h.Write([]byte(v))
 			key += fmt.Sprintf(".%x", h.Sum(nil))

@@ -76,7 +76,7 @@ func (x *baseDumper) open() error {
 		dst:      x.baseDst,
 	}
 	if len(x.files) > 0 {
-		x.current.dst.FileNameSlat = fmt.Sprintf("%d", len(x.files))
+		x.current.dst.FileNameSalt = fmt.Sprintf("%d", len(x.files))
 	}
 	x.files = append(x.files, x.current)
 
