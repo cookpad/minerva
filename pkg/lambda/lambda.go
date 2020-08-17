@@ -2,7 +2,6 @@ package lambda
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/m-mizutani/minerva/internal"
@@ -16,27 +15,6 @@ var Logger = internal.Logger
 // Handler has main logic of the lambda function
 type Handler func(HandlerArguments) error
 
-// HandlerArguments has environment variables, Event record and adaptor
-type HandlerArguments struct {
-	EnvVars
-	Event interface{}
-}
-
-// DecodeEvent marshals and unmarshal received lambda event to struct.
-func (x *HandlerArguments) DecodeEvent(ev interface{}) error {
-	raw, err := json.Marshal(x.Event)
-	if err != nil {
-		return errors.Wrap(err, "Failed to marshal lambda event in DecodeEvent")
-	}
-
-	if err := json.Unmarshal(raw, &ev); err != nil {
-		Logger.WithField("raw", string(raw)).Error("json.Unmarshal")
-		return errors.Wrap(err, "Failed json.Unmarshal in DecodeEvent")
-	}
-
-	return nil
-}
-
 // StartHandler initialize AWS Lambda and invokes handler
 func StartHandler(handler Handler) {
 	Logger.SetLevel(logrus.InfoLevel)
@@ -45,7 +23,7 @@ func StartHandler(handler Handler) {
 		defer internal.FlushError()
 
 		var args HandlerArguments
-		if err := args.BindVars(); err != nil {
+		if err := args.BindEnvVars(); err != nil {
 			internal.HandleError(err)
 			return err
 		}
@@ -55,6 +33,7 @@ func StartHandler(handler Handler) {
 		}
 
 		Logger.WithFields(logrus.Fields{"args": args, "event": event}).Debug("Start handler")
+		args.Event = event
 
 		if err := handler(args); err != nil {
 			Logger.WithFields(logrus.Fields{"args": args, "event": event}).Error("Failed Handler")

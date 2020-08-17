@@ -25,8 +25,8 @@ type EnvVars struct {
 	AwsRegion string `env:"AWS_REGION"`
 }
 
-// BindVars loads environments variables and set them to EnvVars
-func (x *EnvVars) BindVars() error {
+// BindEnvVars loads environments variables and set them to EnvVars
+func (x *EnvVars) BindEnvVars() error {
 	if _, err := env.UnmarshalFromEnviron(x); err != nil {
 		Logger.WithError(err).Error("Failed UnmarshalFromEviron")
 		return err

@@ -38,6 +38,7 @@ require (
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sys v0.0.0-20200814200057-3d37ad5750ed // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
+	gopkg.in/go-playground/assert.v1 v1.2.1
 )
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43

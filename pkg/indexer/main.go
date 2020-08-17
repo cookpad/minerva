@@ -41,7 +41,7 @@ type arguments struct {
 }
 
 func handleEvent(args arguments) error {
-	if err := args.BindVars(); err != nil {
+	if err := args.BindEnvVars(); err != nil {
 		return err
 	}
 
@@ -100,6 +100,7 @@ func makeIndex(args arguments, record events.S3EventRecord) error {
 
 	for _, dumper := range dumpers {
 		for _, f := range dumper.Files() {
+			f.dst.Prefix = args.S3Prefix
 			dstObject := internal.NewS3Object(args.S3Region, args.S3Bucket, f.dst.S3Key())
 
 			if err := internal.UploadFileToS3(f.filePath, dstObject); err != nil {

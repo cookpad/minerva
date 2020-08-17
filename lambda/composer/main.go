@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/m-mizutani/minerva/pkg/lambda"
+	"github.com/m-mizutani/minerva/pkg/models"
 )
 
 var logger = lambda.Logger
@@ -12,12 +12,19 @@ func main() {
 }
 
 func handler(args lambda.HandlerArguments) error {
-	var event events.SQSEvent
-	if err := args.DecodeEvent(&event); err != nil {
+	records, err := args.DecapSQSEvent()
+	if err != nil {
 		return err
 	}
 
-	logger.WithField("event", event).Info("waiwai")
+	for _, record := range records {
+		var q models.ComposeQueue
+		if err := record.Bind(&q); err != nil {
+			return err
+		}
+
+		logger.WithField("queue", q).Info("waiwai")
+	}
 
 	return nil
 }

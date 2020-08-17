@@ -13,7 +13,7 @@ func main() {
 
 func handler(args lambda.HandlerArguments) error {
 	var event events.DynamoDBEvent
-	if err := args.DecodeEvent(&event); err != nil {
+	if err := args.BindEvent(&event); err != nil {
 		return err
 	}
 
