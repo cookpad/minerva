@@ -31,13 +31,13 @@ func newGenericParquetLocation() internal.ParquetLocation {
 func TestParquetLocationS3Key(t *testing.T) {
 	pqLoc := newGenericParquetLocation()
 
-	assert.Equal(t, "raw/indices/dt=1983-04-20-13/unmerged/srcbucket/srckey.parquet", pqLoc.S3Key())
+	assert.Equal(t, "raw/indices/dt=1983-04-20-13/srcbucket/srckey.parquet", pqLoc.S3Key())
 
 	pqLoc.Prefix = "myprefix/"
-	assert.Equal(t, "myprefix/raw/indices/dt=1983-04-20-13/unmerged/srcbucket/srckey.parquet", pqLoc.S3Key())
+	assert.Equal(t, "myprefix/raw/indices/dt=1983-04-20-13/srcbucket/srckey.parquet", pqLoc.S3Key())
 
 	pqLoc.Schema = internal.ParquetSchemaMessage
-	assert.Equal(t, "myprefix/raw/messages/dt=1983-04-20-13/unmerged/srcbucket/srckey.parquet", pqLoc.S3Key())
+	assert.Equal(t, "myprefix/raw/messages/dt=1983-04-20-13/srcbucket/srckey.parquet", pqLoc.S3Key())
 
 	pqLoc.MergeStat = internal.ParquetMergeStatMerged
 	assert.Equal(t, "myprefix/messages/dt=1983-04-20-13/merged/srcbucket/srckey.parquet", pqLoc.S3Key())

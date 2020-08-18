@@ -125,6 +125,7 @@ func (x *baseDumper) Close() error {
 		"dst":         x.current.dst,
 		"dataSize":    x.dataSize,
 	}).Debug("Closing dumper")
+	x.current.dataSize = x.dataSize
 
 	defer func() {
 		x.current.fw.Close()

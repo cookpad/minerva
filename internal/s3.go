@@ -31,36 +31,55 @@ func newAwsS3Client(region string) s3Client {
 }
 
 type S3Object struct {
-	region string
-	bucket string
-	key    string
+	Region string `json:"region"`
+	Bucket string `json:"bucket"`
+	Key    string `json:"key"`
 }
 
 func NewS3Object(region, bucket, key string) S3Object {
 	return S3Object{
-		region: region,
-		bucket: bucket,
-		key:    key,
+		Region: region,
+		Bucket: bucket,
+		Key:    key,
 	}
 }
 
 func NewS3ObjectFromRecord(record events.S3EventRecord) S3Object {
 	return S3Object{
-		region: record.AWSRegion,
-		bucket: record.S3.Bucket.Name,
-		key:    record.S3.Object.Key,
+		Region: record.AWSRegion,
+		Bucket: record.S3.Bucket.Name,
+		Key:    record.S3.Object.Key,
 	}
 }
 
-func (x *S3Object) Region() string { return x.region }
-func (x *S3Object) Bucket() string { return x.bucket }
-func (x *S3Object) Key() string    { return x.key }
 func (x *S3Object) AppendKey(append string) {
-	if strings.HasSuffix(x.key, "/") {
-		x.key += append
+	if strings.HasSuffix(x.Key, "/") {
+		x.Key += append
 	} else {
-		x.key += "/" + append
+		x.Key += "/" + append
 	}
+}
+
+func (x *S3Object) Encode() string {
+	return fmt.Sprintf("%s@%s:%s", x.Bucket, x.Region, x.Key)
+}
+
+func DecodeS3Object(raw string) (*S3Object, error) {
+	p1 := strings.Split(raw, "@")
+	if len(p1) != 2 {
+		return nil, errors.New("Invalid S3 path encode (@ is required)")
+	}
+
+	p2 := strings.Split(p1[1], ":")
+	if len(p2) < 2 {
+		return nil, errors.New("Invalid S3 path encode (: is required)")
+	}
+
+	return &S3Object{
+		Bucket: p1[0],
+		Region: p2[0],
+		Key:    strings.Join(p2[1:], ":"),
+	}, nil
 }
 
 // UploadFileToS3 upload a specified local file to S3
@@ -71,11 +90,11 @@ func UploadFileToS3(filePath string, dst S3Object) error {
 	}
 	defer fd.Close()
 
-	client := newS3Client(dst.Region())
+	client := newS3Client(dst.Region)
 	input := &s3.PutObjectInput{
 		Body:   fd,
-		Bucket: aws.String(dst.Bucket()),
-		Key:    aws.String(dst.Key()),
+		Bucket: aws.String(dst.Bucket),
+		Key:    aws.String(dst.Key),
 	}
 
 	resp, err := client.PutObject(input)
@@ -83,17 +102,17 @@ func UploadFileToS3(filePath string, dst S3Object) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				return errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", dst.Bucket(), dst.Key())
+				return errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", dst.Bucket, dst.Key)
 			}
 		} else {
-			return errors.Wrapf(aerr, "Fail to upload a parquet file in https: %s/%s", dst.Bucket(), dst.Key())
+			return errors.Wrapf(aerr, "Fail to upload a parquet file in https: %s/%s", dst.Bucket, dst.Key)
 		}
 	}
 
 	Logger.WithFields(logrus.Fields{
 		"resp":   resp,
-		"bucket": dst.Bucket(),
-		"key":    dst.Key(),
+		"bucket": dst.Bucket,
+		"key":    dst.Key,
 	}).Debug("Uploaded a parquet file")
 
 	return nil

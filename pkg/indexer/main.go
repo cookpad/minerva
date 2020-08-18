@@ -123,9 +123,7 @@ func makeIndex(args arguments, record events.S3EventRecord) error {
 			}
 
 			composeQueue := models.ComposeQueue{
-				S3Region:  args.S3Region,
-				S3Bucket:  dstObject.Bucket(),
-				S3Key:     dstObject.Key(),
+				S3Object:  dstObject,
 				Size:      f.dataSize,
 				Schema:    dumper.Type(),
 				Partition: f.dst.Partition(),

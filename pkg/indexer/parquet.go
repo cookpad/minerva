@@ -34,8 +34,8 @@ func newPqLoc(q *logQueue) (msgDst, idxDst internal.ParquetLocation) {
 	dst := internal.ParquetLocation{
 		MergeStat: internal.ParquetMergeStatUnmerged,
 		Timestamp: q.Timestamp,
-		SrcBucket: q.Src.Bucket(),
-		SrcKey:    q.Src.Key(),
+		SrcBucket: q.Src.Bucket,
+		SrcKey:    q.Src.Key,
 	}
 
 	// copy common variables
@@ -55,7 +55,7 @@ func dumpParquetFiles(ch chan *logQueue, meta internal.MetaAccessor) ([]dumper, 
 			return nil, errors.Wrap(q.Err, "Fail to receive queue")
 		}
 
-		objID, err := meta.GetObjecID(q.Src.Bucket(), q.Src.Key())
+		objID, err := meta.GetObjecID(q.Src.Bucket, q.Src.Key)
 		if err != nil {
 			return nil, err
 		}

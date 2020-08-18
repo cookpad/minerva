@@ -105,3 +105,10 @@ func isConditionalCheckErr(err error) bool {
 	}
 	return false
 }
+
+func isResourceNotFoundErr(err error) bool {
+	if ae, ok := err.(awserr.RequestFailure); ok {
+		return ae.Code() == dynamodb.ErrCodeResourceNotFoundException
+	}
+	return false
+}

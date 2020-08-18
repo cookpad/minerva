@@ -1,11 +1,11 @@
 package models
 
+import "github.com/m-mizutani/minerva/internal"
+
 // ComposeQueue is sent by indexer and received by composer
 type ComposeQueue struct {
-	S3Region  string `json:"s3_region"`
-	S3Bucket  string `json:"s3_bucket"`
-	S3Key     string `json:"s3_key"`
-	Size      int    `json:"size"`
-	Schema    string `json:"schema"`
-	Partition string `json:"partition"`
+	S3Object  internal.S3Object `json:"s3_object"`
+	Size      int               `json:"size"`
+	Schema    string            `json:"schema"`
+	Partition string            `json:"partition"`
 }
