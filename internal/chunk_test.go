@@ -24,14 +24,14 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		}
 
 		// No chunks are returned before putting chunk
-		chunks, err := repo.GetChunks("index")
+		chunks, err := repo.GetWritableChunks("index", ts, 60)
 		require.NoError(tt, err)
 		assert.Equal(tt, 0, len(chunks))
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
 
 		// One chunk should be returned after put
-		chunks, err = repo.GetChunks("index")
+		chunks, err = repo.GetWritableChunks("index", ts, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(chunks))
 		require.Equal(tt, 1, len(chunks[0].S3Objects))
@@ -57,14 +57,18 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks, err := repo.GetChunks("index")
-		require.NoError(tt, err)
 
-		require.NoError(tt, repo.UpdateChunk(chunks[0], obj2, 33, ts.Add(time.Minute)))
-		chunks, err = repo.GetChunks("index")
+		writeSize := int64(33)
+		writeTS := ts.Add(time.Minute)
+		chunks, err := repo.GetWritableChunks("index", writeTS, writeSize)
+		require.NoError(tt, err)
+		require.NoError(tt, repo.UpdateChunk(chunks[0], obj2, 39, ts.Add(time.Minute)))
+
+		chunks, err = repo.GetWritableChunks("index", ts, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(chunks))
 		require.Equal(tt, 2, len(chunks[0].S3Objects))
+		assert.Equal(tt, int64(99), chunks[0].TotalSize)
 	})
 
 	t.Run("Put another chunk", func(tt *testing.T) {
@@ -82,12 +86,12 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks1, err := repo.GetChunks("index")
+
+		chunks1, err := repo.GetWritableChunks("index", ts, 0)
 		require.NoError(tt, err)
-		assert.Equal(tt, 1, len(chunks1))
 
 		require.NoError(tt, repo.PutChunk(obj2, 50, "index", ts))
-		chunks2, err := repo.GetChunks("index")
+		chunks2, err := repo.GetWritableChunks("index", ts, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 2, len(chunks2))
 
@@ -109,7 +113,7 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks1, err := repo.GetChunks("index")
+		chunks1, err := repo.GetWritableChunks("index", ts, 0)
 		require.NoError(tt, err)
 
 		old, err := repo.DeleteChunk(chunks1[0])
@@ -117,7 +121,7 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		assert.Equal(t, chunks1[0].PK, old.PK)
 		assert.Equal(t, chunks1[0].SK, old.SK)
 
-		chunks2, err := repo.GetChunks("index")
+		chunks2, err := repo.GetWritableChunks("index", ts, 0)
 		require.NoError(t, err)
 		assert.Equal(t, 0, len(chunks2))
 	})
@@ -137,12 +141,12 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks, err := repo.GetChunks("index")
+		chunks, err := repo.GetWritableChunks("index", ts, 0)
 		require.NoError(tt, err)
 
 		assert.Equal(tt, internal.ErrUpdateChunk,
 			repo.UpdateChunk(chunks[0], obj2, 40, ts.Add(time.Minute)))
-		chunks, err = repo.GetChunks("index")
+		chunks, err = repo.GetWritableChunks("index", ts, 0)
 		require.NoError(t, err)
 		assert.Equal(tt, 1, len(chunks))
 		assert.Equal(tt, 1, len(chunks[0].S3Objects))
@@ -165,12 +169,12 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks, err := repo.GetChunks("index")
+		chunks, err := repo.GetWritableChunks("index", ts, 0)
 		require.NoError(tt, err)
 
 		assert.Equal(tt, internal.ErrUpdateChunk,
 			repo.UpdateChunk(chunks[0], obj2, 5, ts.Add(time.Minute*6)))
-		chunks, err = repo.GetChunks("index")
+		chunks, err = repo.GetWritableChunks("index", ts, 0)
 		require.NoError(t, err)
 		assert.Equal(tt, 1, len(chunks))
 		assert.Equal(tt, 1, len(chunks[0].S3Objects))
@@ -193,7 +197,7 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks1, err := repo.GetChunks("index")
+		chunks1, err := repo.GetWritableChunks("index", ts, 0)
 		require.NoError(tt, err)
 
 		_, err = repo.DeleteChunk(chunks1[0])
@@ -201,9 +205,83 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 
 		assert.Equal(tt, internal.ErrUpdateChunk,
 			repo.UpdateChunk(chunks1[0], obj2, 30, ts.Add(time.Minute)))
-		chunks2, err := repo.GetChunks("index")
+		chunks2, err := repo.GetWritableChunks("index", ts, 0)
 		require.NoError(t, err)
 		assert.Equal(t, 0, len(chunks2))
+	})
+
+	t.Run("Get readable chunks (no available chunks)", func(tt *testing.T) {
+		repo := newRepo()
+
+		obj1 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k1",
+			Region: "us-east-1",
+		}
+		obj2 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k2",
+			Region: "us-east-2",
+		}
+
+		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
+		require.NoError(tt, repo.PutChunk(obj2, 40, "index", ts))
+
+		chunks1, err := repo.GetReadableChunks("index", ts.Add(time.Minute))
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(chunks1))
+	})
+
+	t.Run("Get readable chunks (chunkSizeMin exceeded)", func(tt *testing.T) {
+		repo := newRepo()
+
+		obj1 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k1",
+			Region: "us-east-1",
+		}
+		obj2 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k2",
+			Region: "us-east-2",
+		}
+
+		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
+		require.NoError(tt, repo.PutChunk(obj2, 80, "index", ts))
+
+		chunks1, err := repo.GetReadableChunks("index", ts.Add(time.Minute))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(chunks1))
+		assert.Equal(t, int64(80), chunks1[0].TotalSize) // obj3
+		obj, err := internal.DecodeS3Object(chunks1[0].S3Objects[0])
+		require.NoError(t, err)
+		assert.Equal(t, "blue/k2", obj.Key)
+	})
+
+	t.Run("Get readable chunks (after FreezedAt)", func(tt *testing.T) {
+		repo := newRepo()
+
+		obj1 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k1",
+			Region: "us-east-1",
+		}
+		obj2 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k2",
+			Region: "us-east-2",
+		}
+
+		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
+		require.NoError(tt, repo.PutChunk(obj2, 70, "index", ts.Add(time.Minute)))
+
+		chunks1, err := repo.GetReadableChunks("index", ts.Add(time.Minute*5))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(chunks1))
+		assert.Equal(t, int64(60), chunks1[0].TotalSize) // obj3
+		obj, err := internal.DecodeS3Object(chunks1[0].S3Objects[0])
+		require.NoError(t, err)
+		assert.Equal(t, "blue/k1", obj.Key)
 	})
 }
 
@@ -217,10 +295,13 @@ func TestChunkDynamoDB(t *testing.T) {
 
 	newRepo := func() internal.ChunkRepository {
 		repo := internal.NewChunkDynamoDB(region, table)
+
 		// For independent testing
 		repo.ChunkKeyPrefix = fmt.Sprintf("chunk/%s/", uuid.New().String())
+
 		// To simplify test
 		repo.ChunkSizeMax = 100
+		repo.ChunkSizeMin = 80
 
 		return repo
 	}

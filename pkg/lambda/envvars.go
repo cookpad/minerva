@@ -17,6 +17,7 @@ type EnvVars struct {
 
 	// From resource
 	MetaTableName     string `env:"META_TABLE_NAME"`
+	ChunkTableName    string `env:"CHUNK_TABLE_NAME"`
 	PartitionQueueURL string `env:"PARTITION_QUEUE_URL"`
 	ComposeQueueURL   string `env:"COMPOSE_QUEUE_URL"`
 	MergeQueueURL     string `env:"MERGE_QUEUE_URL"`

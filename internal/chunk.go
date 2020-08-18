@@ -23,7 +23,8 @@ type Chunk struct {
 }
 
 type ChunkRepository interface {
-	GetChunks(schema string) ([]*Chunk, error)
+	GetWritableChunks(schema string, ts time.Time, size int64) ([]*Chunk, error)
+	GetReadableChunks(schema string, ts time.Time) ([]*Chunk, error)
 	PutChunk(obj S3Object, size int64, schema string, ts time.Time) error
 	UpdateChunk(chunk *Chunk, obj S3Object, size int64, ts time.Time) error
 	DeleteChunk(chunk *Chunk) (*Chunk, error)
@@ -38,6 +39,7 @@ const (
 	defaultChunkKeyPrefix    = "chunk/"
 	defaultChunkFreezedAfter = time.Minute * 5
 	defaultChunkSizeMax      = 128 * 1000 * 1000
+	defaultChunkSizeMin      = 100 * 1000 * 1000
 )
 
 // ChunkDynamoDB is implementation of ChunkRepository for DynamoDB
@@ -47,6 +49,7 @@ type ChunkDynamoDB struct {
 	ChunkKeyPrefix    string
 	ChunkFreezedAfter time.Duration
 	ChunkSizeMax      int64
+	ChunkSizeMin      int64
 }
 
 // NewChunkDynamoDB is constructor of ChunkDynamoDB
@@ -59,6 +62,7 @@ func NewChunkDynamoDB(region, tableName string) *ChunkDynamoDB {
 		ChunkFreezedAfter: defaultChunkFreezedAfter,
 		ChunkKeyPrefix:    defaultChunkKeyPrefix,
 		ChunkSizeMax:      defaultChunkSizeMax,
+		ChunkSizeMin:      defaultChunkSizeMin,
 	}
 }
 
@@ -70,9 +74,24 @@ func (x *ChunkDynamoDB) chunkKey(schema string) string {
 	return x.ChunkKeyPrefix + schema
 }
 
-func (x *ChunkDynamoDB) GetChunks(schema string) ([]*Chunk, error) {
+func (x *ChunkDynamoDB) GetReadableChunks(schema string, ts time.Time) ([]*Chunk, error) {
 	var chunks []*Chunk
-	query := x.table.Get("pk", x.chunkKey(schema))
+	query := x.table.
+		Get("pk", x.chunkKey(schema)).
+		Filter("? <= 'total_size' OR 'freezed_at' <= ?", x.ChunkSizeMin, ts.Unix())
+
+	if err := query.All(&chunks); err != nil {
+		return nil, errors.Wrap(err, "Failed get chunks")
+	}
+
+	return chunks, nil
+}
+
+func (x *ChunkDynamoDB) GetWritableChunks(schema string, ts time.Time, size int64) ([]*Chunk, error) {
+	var chunks []*Chunk
+	query := x.table.
+		Get("pk", x.chunkKey(schema)).
+		Filter("'total_size' <= ? AND ? < 'freezed_at'", defaultChunkSizeMax-size, ts.Unix())
 
 	if err := query.All(&chunks); err != nil {
 		return nil, errors.Wrap(err, "Failed get chunks")

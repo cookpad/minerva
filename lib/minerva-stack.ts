@@ -119,6 +119,7 @@ export class MinervaStack extends cdk.Stack {
 
       // From resource
       META_TABLE_NAME: this.metaTable.tableName,
+      CHUNK_TABLE_NAME: this.chunkTable.tableName,
       PARTITION_QUEUE_URL: this.partitionQueue.queueUrl,
       COMPOSE_QUEUE_URL: this.composeQueue.queueUrl,
       MERGE_QUEUE_URL: this.mergeQueue.queueUrl,

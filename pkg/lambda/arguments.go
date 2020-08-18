@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
 )
 
@@ -54,4 +55,9 @@ func (x *HandlerArguments) BindEvent(ev interface{}) error {
 	}
 
 	return nil
+}
+
+// ChunkTable provides ChunkRepository implementation (DynamoDB)
+func (x *HandlerArguments) ChunkTable() internal.ChunkRepository {
+	return internal.NewChunkDynamoDB(x.AwsRegion, x.ChunkTableName)
 }

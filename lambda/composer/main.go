@@ -35,6 +35,13 @@ func handler(args lambda.HandlerArguments) error {
 }
 
 func composeChunk(args lambda.HandlerArguments, q *models.ComposeQueue) error {
+	/*
+		chunkRepo := args.ChunkTable()
 
+		chunks, err := chunkRepo.GetChunks(q.Schema)
+		if err != nil {
+			return errors.Wrap(err, "Failed GetChunks")
+		}
+	*/
 	return nil
 }
