@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 )
@@ -16,11 +16,11 @@ type logQueue struct {
 	Message   string
 	Value     interface{}
 	Seq       int32
-	Src       internal.S3Object
+	Src       models.S3Object
 }
 
 // makeLogChannel loads log data from S3 bucket
-func makeLogChannel(src internal.S3Object, reader *rlogs.Reader) chan *logQueue {
+func makeLogChannel(src models.S3Object, reader *rlogs.Reader) chan *logQueue {
 	ch := make(chan *logQueue, indexQueueSize)
 
 	go func() {

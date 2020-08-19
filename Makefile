@@ -11,7 +11,7 @@ BINPATH := \
 	$(BIN_DIR)/dispatcher \
 	$(BIN_DIR)/errorHandler
 
-SRC := $(CODE_DIR)/internal/*.go $(CODE_DIR)/pkg/*/*.go
+SRC := $(CODE_DIR)/internal/*.go $(CODE_DIR)/internal/*/*.go  $(CODE_DIR)/pkg/*/*.go
 
 all: build
 

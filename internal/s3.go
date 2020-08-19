@@ -5,13 +5,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -30,60 +29,8 @@ func newAwsS3Client(region string) s3Client {
 	return s3.New(ssn)
 }
 
-type S3Object struct {
-	Region string `json:"region"`
-	Bucket string `json:"bucket"`
-	Key    string `json:"key"`
-}
-
-func NewS3Object(region, bucket, key string) S3Object {
-	return S3Object{
-		Region: region,
-		Bucket: bucket,
-		Key:    key,
-	}
-}
-
-func NewS3ObjectFromRecord(record events.S3EventRecord) S3Object {
-	return S3Object{
-		Region: record.AWSRegion,
-		Bucket: record.S3.Bucket.Name,
-		Key:    record.S3.Object.Key,
-	}
-}
-
-func (x *S3Object) AppendKey(append string) {
-	if strings.HasSuffix(x.Key, "/") {
-		x.Key += append
-	} else {
-		x.Key += "/" + append
-	}
-}
-
-func (x *S3Object) Encode() string {
-	return fmt.Sprintf("%s@%s:%s", x.Bucket, x.Region, x.Key)
-}
-
-func DecodeS3Object(raw string) (*S3Object, error) {
-	p1 := strings.Split(raw, "@")
-	if len(p1) != 2 {
-		return nil, errors.New("Invalid S3 path encode (@ is required)")
-	}
-
-	p2 := strings.Split(p1[1], ":")
-	if len(p2) < 2 {
-		return nil, errors.New("Invalid S3 path encode (: is required)")
-	}
-
-	return &S3Object{
-		Bucket: p1[0],
-		Region: p2[0],
-		Key:    strings.Join(p2[1:], ":"),
-	}, nil
-}
-
 // UploadFileToS3 upload a specified local file to S3
-func UploadFileToS3(filePath string, dst S3Object) error {
+func UploadFileToS3(filePath string, dst models.S3Object) error {
 	fd, err := os.Open(filePath)
 	if err != nil {
 		return errors.Wrapf(err, "Fail to open a parquet file: %s", filePath)
@@ -120,7 +67,7 @@ func UploadFileToS3(filePath string, dst S3Object) error {
 
 const s3DownloadBufferSize = 2 * 1024 * 1024 // 2MB
 
-// DownloadS3Object downloads a specified remote object from S3
+// Downloadmodels.S3Object downloads a specified remote object from S3
 func DownloadS3Object(s3region, s3bucket, s3key string) (*string, error) {
 	client := newS3Client(s3region)
 	input := &s3.GetObjectInput{

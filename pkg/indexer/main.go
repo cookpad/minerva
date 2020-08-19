@@ -85,7 +85,7 @@ const (
 
 // makeIndex is a process for one S3 object to make index file.
 func makeIndex(args arguments, record events.S3EventRecord) error {
-	srcObject := internal.NewS3ObjectFromRecord(record)
+	srcObject := models.NewS3ObjectFromRecord(record)
 
 	ch := makeLogChannel(srcObject, args.Reader)
 	meta := internal.NewMetaDynamoDB(args.AwsRegion, args.MetaTableName)
@@ -101,7 +101,7 @@ func makeIndex(args arguments, record events.S3EventRecord) error {
 	for _, dumper := range dumpers {
 		for _, f := range dumper.Files() {
 			f.dst.Prefix = args.S3Prefix
-			dstObject := internal.NewS3Object(args.S3Region, args.S3Bucket, f.dst.S3Key())
+			dstObject := models.NewS3Object(args.S3Region, args.S3Bucket, f.dst.S3Key())
 
 			if err := internal.UploadFileToS3(f.filePath, dstObject); err != nil {
 				logger.WithField("dst", dstObject).Error("internal.UploadFileToS3")

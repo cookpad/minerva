@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/uuid"
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -119,7 +120,7 @@ func TestS3PutObject(t *testing.T) {
 	fd.Write([]byte("five timeless words"))
 
 	filePath := fd.Name()
-	dst := internal.NewS3Object("dokoka", "nanika", "sowaka.txt")
+	dst := models.NewS3Object("dokoka", "nanika", "sowaka.txt")
 	err = internal.UploadFileToS3(filePath, dst)
 	require.NoError(t, err)
 

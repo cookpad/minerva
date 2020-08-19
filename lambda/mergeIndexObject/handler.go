@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 	"github.com/xitongsys/parquet-go-source/local"
 	"github.com/xitongsys/parquet-go/parquet"
@@ -211,7 +212,7 @@ func mergeParquet(args arguments) error {
 	if mergedFile != nil {
 		defer os.Remove(*mergedFile)
 
-		dst := internal.NewS3Object(args.Queue.DstObject.Region, args.Queue.DstObject.Bucket, args.Queue.DstObject.Key)
+		dst := models.NewS3Object(args.Queue.DstObject.Region, args.Queue.DstObject.Bucket, args.Queue.DstObject.Key)
 		if err := internal.UploadFileToS3(*mergedFile, dst); err != nil {
 			return err
 		}

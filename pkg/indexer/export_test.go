@@ -1,6 +1,9 @@
 package indexer
 
-import "github.com/m-mizutani/minerva/internal"
+import (
+	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
+)
 
 var (
 	ToKeyValuePairs = toKeyValuePairs
@@ -23,7 +26,7 @@ func LookupValue(kvList []keyValuePair, key string) interface{} {
 	return nil
 }
 
-func testLoadMessage(obj internal.S3Object, queues []*LogQueue) chan *logQueue {
+func testLoadMessage(obj models.S3Object, queues []*LogQueue) chan *logQueue {
 	ch := make(chan *logQueue, 128)
 	go func() {
 		defer close(ch)
@@ -37,7 +40,7 @@ func testLoadMessage(obj internal.S3Object, queues []*LogQueue) chan *logQueue {
 	return ch
 }
 
-func testLoadMessageChannel(obj internal.S3Object, input chan *LogQueue) chan *logQueue {
+func testLoadMessageChannel(obj models.S3Object, input chan *LogQueue) chan *logQueue {
 	ch := make(chan *logQueue, 128)
 	go func() {
 		defer close(ch)

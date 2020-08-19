@@ -8,6 +8,7 @@ import (
 
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/indexer"
+	"github.com/m-mizutani/minerva/pkg/models"
 
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +37,7 @@ func (x *dummyS3Client) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput
 	switch {
 	case *input.Bucket == "src-bucket" && *input.Key == "k1.json":
 		return &s3.GetObjectOutput{Body: x.origin}, nil
-	case *input.Bucket == "dst-bucket" && *input.Key == "dst-prefix/indices/dt=2019-09-18/tg=aws.cloudtrail/unmerged/23/src-bucket/k1.json.parquet":
+	case *input.Bucket == "dst-bucket" && *input.Key == "dst-prefix/indices/dt=2019-09-18/tg=aws.cloudtrail/23/src-bucket/k1.json.parquet":
 		return &s3.GetObjectOutput{Body: x.origin}, nil
 	}
 	return nil, nil
@@ -73,7 +74,7 @@ func TestCreateParquet(t *testing.T) {
 		},
 	}
 
-	srcObj := internal.NewS3Object("ap-northeast-1", "src-bucket", "k1.json")
+	srcObj := models.NewS3Object("ap-northeast-1", "src-bucket", "k1.json")
 	ch := indexer.TestLoadMessage(srcObj, queues)
 
 	meta := newDummyMeta()
@@ -92,7 +93,7 @@ func TestCreateParquet(t *testing.T) {
 	dst := idxFiles[0].Dst()
 	dst.Bucket = "dst-bucket"
 	dst.Prefix = "dst-prefix/"
-	assert.Equal(t, "dst-prefix/raw/indices/dt=2019-09-18-23/unmerged/src-bucket/k1.json.parquet", dst.S3Key())
+	assert.Equal(t, "dst-prefix/raw/indices/dt=2019-09-18-23/src-bucket/k1.json.parquet", dst.S3Key())
 	assert.Equal(t, "s3://dst-bucket/dst-prefix/indices/dt=2019-09-18-23/", dst.PartitionLocation())
 
 	///read
@@ -153,7 +154,7 @@ func TestSplitLargeParquetFiles(t *testing.T) {
 		Data   string
 	}
 
-	src := internal.NewS3Object("ap-northeast-1", "src-bucket", "k1.json")
+	src := models.NewS3Object("ap-northeast-1", "src-bucket", "k1.json")
 	input := make(chan *indexer.LogQueue, 1024)
 	ch := indexer.TestLoadMessageChannel(src, input)
 
