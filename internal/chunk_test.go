@@ -2,6 +2,7 @@ package internal_test
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -15,6 +16,9 @@ import (
 func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) {
 	ts := time.Now()
 
+	const defaultShema = "index"
+	const defaultPartition = "dt=2020-01-01"
+
 	t.Run("Put a new chunk", func(tt *testing.T) {
 		repo := newRepo()
 		obj1 := internal.S3Object{
@@ -24,14 +28,14 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 		}
 
 		// No chunks are returned before putting chunk
-		chunks, err := repo.GetWritableChunks("index", ts, 60)
+		chunks, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 60)
 		require.NoError(tt, err)
 		assert.Equal(tt, 0, len(chunks))
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
 
 		// One chunk should be returned after put
-		chunks, err = repo.GetWritableChunks("index", ts, 0)
+		chunks, err = repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(chunks))
 		require.Equal(tt, 1, len(chunks[0].S3Objects))
@@ -56,15 +60,15 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-2",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
 
 		writeSize := int64(33)
 		writeTS := ts.Add(time.Minute)
-		chunks, err := repo.GetWritableChunks("index", writeTS, writeSize)
+		chunks, err := repo.GetWritableChunks(defaultShema, defaultPartition, writeTS, writeSize)
 		require.NoError(tt, err)
 		require.NoError(tt, repo.UpdateChunk(chunks[0], obj2, 39, ts.Add(time.Minute)))
 
-		chunks, err = repo.GetWritableChunks("index", ts, 0)
+		chunks, err = repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(chunks))
 		require.Equal(tt, 2, len(chunks[0].S3Objects))
@@ -85,13 +89,13 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-3",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
 
-		chunks1, err := repo.GetWritableChunks("index", ts, 0)
+		chunks1, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
 
-		require.NoError(tt, repo.PutChunk(obj2, 50, "index", ts))
-		chunks2, err := repo.GetWritableChunks("index", ts, 0)
+		require.NoError(tt, repo.PutChunk(obj2, 50, defaultShema, defaultPartition, ts))
+		chunks2, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 2, len(chunks2))
 
@@ -112,18 +116,18 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-1",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks1, err := repo.GetWritableChunks("index", ts, 0)
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
+		chunks1, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
 
 		old, err := repo.DeleteChunk(chunks1[0])
-		require.NoError(t, err)
-		assert.Equal(t, chunks1[0].PK, old.PK)
-		assert.Equal(t, chunks1[0].SK, old.SK)
+		require.NoError(tt, err)
+		assert.Equal(tt, chunks1[0].PK, old.PK)
+		assert.Equal(tt, chunks1[0].SK, old.SK)
 
-		chunks2, err := repo.GetWritableChunks("index", ts, 0)
-		require.NoError(t, err)
-		assert.Equal(t, 0, len(chunks2))
+		chunks2, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
+		require.NoError(tt, err)
+		assert.Equal(tt, 0, len(chunks2))
 	})
 
 	t.Run("Fail to update chunk exceeding ChunkSizeMax", func(tt *testing.T) {
@@ -140,14 +144,14 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-3",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks, err := repo.GetWritableChunks("index", ts, 0)
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
+		chunks, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
 
 		assert.Equal(tt, internal.ErrUpdateChunk,
 			repo.UpdateChunk(chunks[0], obj2, 40, ts.Add(time.Minute)))
-		chunks, err = repo.GetWritableChunks("index", ts, 0)
-		require.NoError(t, err)
+		chunks, err = repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
+		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(chunks))
 		assert.Equal(tt, 1, len(chunks[0].S3Objects))
 		obj1d, err := internal.DecodeS3Object(chunks[0].S3Objects[0])
@@ -168,14 +172,14 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-3",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks, err := repo.GetWritableChunks("index", ts, 0)
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
+		chunks, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
 
 		assert.Equal(tt, internal.ErrUpdateChunk,
 			repo.UpdateChunk(chunks[0], obj2, 5, ts.Add(time.Minute*6)))
-		chunks, err = repo.GetWritableChunks("index", ts, 0)
-		require.NoError(t, err)
+		chunks, err = repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
+		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(chunks))
 		assert.Equal(tt, 1, len(chunks[0].S3Objects))
 		obj1d, err := internal.DecodeS3Object(chunks[0].S3Objects[0])
@@ -196,18 +200,18 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-3",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		chunks1, err := repo.GetWritableChunks("index", ts, 0)
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
+		chunks1, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
 
 		_, err = repo.DeleteChunk(chunks1[0])
-		require.NoError(t, err)
+		require.NoError(tt, err)
 
 		assert.Equal(tt, internal.ErrUpdateChunk,
 			repo.UpdateChunk(chunks1[0], obj2, 30, ts.Add(time.Minute)))
-		chunks2, err := repo.GetWritableChunks("index", ts, 0)
-		require.NoError(t, err)
-		assert.Equal(t, 0, len(chunks2))
+		chunks2, err := repo.GetWritableChunks(defaultShema, defaultPartition, ts, 0)
+		require.NoError(tt, err)
+		assert.Equal(tt, 0, len(chunks2))
 	})
 
 	t.Run("Get readable chunks (no available chunks)", func(tt *testing.T) {
@@ -224,12 +228,12 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-2",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		require.NoError(tt, repo.PutChunk(obj2, 40, "index", ts))
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
+		require.NoError(tt, repo.PutChunk(obj2, 40, defaultShema, defaultPartition, ts))
 
-		chunks1, err := repo.GetReadableChunks("index", ts.Add(time.Minute))
-		require.NoError(t, err)
-		assert.Equal(t, 0, len(chunks1))
+		chunks1, err := repo.GetReadableChunks(defaultShema, ts.Add(time.Minute))
+		require.NoError(tt, err)
+		assert.Equal(tt, 0, len(chunks1))
 	})
 
 	t.Run("Get readable chunks (chunkSizeMin exceeded)", func(tt *testing.T) {
@@ -246,16 +250,16 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-2",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		require.NoError(tt, repo.PutChunk(obj2, 80, "index", ts))
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
+		require.NoError(tt, repo.PutChunk(obj2, 80, defaultShema, defaultPartition, ts))
 
-		chunks1, err := repo.GetReadableChunks("index", ts.Add(time.Minute))
-		require.NoError(t, err)
-		require.Equal(t, 1, len(chunks1))
-		assert.Equal(t, int64(80), chunks1[0].TotalSize) // obj3
+		chunks1, err := repo.GetReadableChunks(defaultShema, ts.Add(time.Minute))
+		require.NoError(tt, err)
+		require.Equal(tt, 1, len(chunks1))
+		assert.Equal(tt, int64(80), chunks1[0].TotalSize) // obj3
 		obj, err := internal.DecodeS3Object(chunks1[0].S3Objects[0])
-		require.NoError(t, err)
-		assert.Equal(t, "blue/k2", obj.Key)
+		require.NoError(tt, err)
+		assert.Equal(tt, "blue/k2", obj.Key)
 	})
 
 	t.Run("Get readable chunks (after FreezedAt)", func(tt *testing.T) {
@@ -272,16 +276,107 @@ func testChunkRepository(t *testing.T, newRepo func() internal.ChunkRepository) 
 			Region: "us-east-2",
 		}
 
-		require.NoError(tt, repo.PutChunk(obj1, 60, "index", ts))
-		require.NoError(tt, repo.PutChunk(obj2, 70, "index", ts.Add(time.Minute)))
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, defaultPartition, ts))
+		require.NoError(tt, repo.PutChunk(obj2, 70, defaultShema, defaultPartition, ts.Add(time.Minute)))
 
-		chunks1, err := repo.GetReadableChunks("index", ts.Add(time.Minute*5))
-		require.NoError(t, err)
-		require.Equal(t, 1, len(chunks1))
-		assert.Equal(t, int64(60), chunks1[0].TotalSize) // obj3
+		chunks1, err := repo.GetReadableChunks(defaultShema, ts.Add(time.Minute*5))
+		require.NoError(tt, err)
+		require.Equal(tt, 1, len(chunks1))
+		assert.Equal(tt, int64(60), chunks1[0].TotalSize) // obj3
 		obj, err := internal.DecodeS3Object(chunks1[0].S3Objects[0])
-		require.NoError(t, err)
-		assert.Equal(t, "blue/k1", obj.Key)
+		require.NoError(tt, err)
+		assert.Equal(tt, "blue/k1", obj.Key)
+	})
+
+	t.Run("Put different partition chunks", func(tt *testing.T) {
+		repo := newRepo()
+
+		obj1 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k1",
+			Region: "us-east-1",
+		}
+		obj2 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k2",
+			Region: "us-east-2",
+		}
+
+		const p1, p2 = "dt=2020-01-01", "dt=2020-01-02"
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, p1, ts))
+		require.NoError(tt, repo.PutChunk(obj2, 70, defaultShema, p2, ts))
+
+		chunks1, err := repo.GetWritableChunks(defaultShema, p1, ts, 0)
+		require.NoError(tt, err)
+		require.Equal(tt, 1, len(chunks1))
+		assert.Equal(tt, p1, chunks1[0].Partition)
+		assert.Equal(tt, int64(60), chunks1[0].TotalSize)
+	})
+
+	t.Run("Update specific parition chunk", func(tt *testing.T) {
+		repo := newRepo()
+
+		obj1 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k1",
+			Region: "us-east-1",
+		}
+		obj2 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k2",
+			Region: "us-east-2",
+		}
+		obj3 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k3",
+			Region: "us-east-3",
+		}
+
+		const p1, p2 = "dt=2020-01-01", "dt=2020-01-02"
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, p1, ts))
+		require.NoError(tt, repo.PutChunk(obj2, 70, defaultShema, p2, ts))
+
+		chunks1, err := repo.GetWritableChunks(defaultShema, p2, ts, 0)
+		require.NoError(tt, err)
+		require.NoError(tt, repo.UpdateChunk(chunks1[0], obj3, 29, ts))
+
+		chunks2, err := repo.GetWritableChunks(defaultShema, p2, ts, 0)
+		require.NoError(tt, err)
+		require.Equal(tt, 1, len(chunks2))
+		require.Equal(tt, 2, len(chunks2[0].S3Objects))
+		assert.Equal(tt, int64(99), chunks2[0].TotalSize)
+
+		objSet := batchDecodeS3Object(chunks2[0].S3Objects)
+		assert.Contains(tt, objSet, obj2)
+		assert.Contains(tt, objSet, obj3)
+		assert.NotContains(tt, objSet, obj1)
+	})
+
+	t.Run("Get readable chunks of different partitions", func(tt *testing.T) {
+		repo := newRepo()
+
+		obj1 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k1",
+			Region: "us-east-1",
+		}
+		obj2 := internal.S3Object{
+			Bucket: "test-bucket",
+			Key:    "blue/k2",
+			Region: "us-east-2",
+		}
+
+		const p1, p2 = "dt=2020-01-01", "dt=2020-01-02"
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultShema, p1, ts))
+		require.NoError(tt, repo.PutChunk(obj2, 70, defaultShema, p2, ts))
+
+		chunks1, err := repo.GetReadableChunks(defaultShema, ts.Add(time.Hour))
+		require.NoError(tt, err)
+		require.Equal(tt, 2, len(chunks1))
+		sizeList := []int64{chunks1[0].TotalSize, chunks1[1].TotalSize}
+		assert.Contains(tt, sizeList, int64(60))
+		assert.Contains(tt, sizeList, int64(70))
+		assert.NotContains(tt, sizeList, int64(80))
 	})
 }
 
@@ -307,4 +402,19 @@ func TestChunkDynamoDB(t *testing.T) {
 	}
 
 	testChunkRepository(t, newRepo)
+}
+
+// Test helper
+func batchDecodeS3Object(encodedObjects []string) []internal.S3Object {
+	var output []internal.S3Object
+	for _, encobj := range encodedObjects {
+		obj, err := internal.DecodeS3Object(encobj)
+		if err != nil {
+			log.Fatalf("Failed decode S3 object: %s", encobj)
+		}
+
+		output = append(output, *obj)
+	}
+
+	return output
 }

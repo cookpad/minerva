@@ -18,14 +18,15 @@ type Chunk struct {
 	Schema    string   `dynamo:"schema"`
 	S3Objects []string `dynamo:"s3_objects,set"`
 	TotalSize int64    `dynamo:"total_size"`
+	Partition string   `dynamo:"partition"`
 	CreatedAt int64    `dynamo:"created_at"`
 	FreezedAt int64    `dynamo:"freezed_at"`
 }
 
 type ChunkRepository interface {
-	GetWritableChunks(schema string, ts time.Time, size int64) ([]*Chunk, error)
+	GetWritableChunks(schema, partition string, ts time.Time, size int64) ([]*Chunk, error)
 	GetReadableChunks(schema string, ts time.Time) ([]*Chunk, error)
-	PutChunk(obj S3Object, size int64, schema string, ts time.Time) error
+	PutChunk(obj S3Object, size int64, schema, partition string, ts time.Time) error
 	UpdateChunk(chunk *Chunk, obj S3Object, size int64, ts time.Time) error
 	DeleteChunk(chunk *Chunk) (*Chunk, error)
 }
@@ -66,19 +67,19 @@ func NewChunkDynamoDB(region, tableName string) *ChunkDynamoDB {
 	}
 }
 
-func (x *ChunkDynamoDB) chunkKey(schema string) string {
+func (x *ChunkDynamoDB) chunkPK(schema string) string {
 	if schema != "index" && schema != "message" {
 		Logger.Fatalf("Unsupported schema of chunk key: %s", schema)
 	}
 
-	return x.ChunkKeyPrefix + schema
+	return fmt.Sprintf("%s%s", x.ChunkKeyPrefix, schema)
 }
 
 func (x *ChunkDynamoDB) GetReadableChunks(schema string, ts time.Time) ([]*Chunk, error) {
 	var chunks []*Chunk
 	query := x.table.
-		Get("pk", x.chunkKey(schema)).
-		Filter("? <= 'total_size' OR 'freezed_at' <= ?", x.ChunkSizeMin, ts.Unix())
+		Get("pk", x.chunkPK(schema)).
+		Filter("? <= 'total_size' OR 'freezed_at' <= ?", x.ChunkSizeMin, ts.UTC().Unix())
 
 	if err := query.All(&chunks); err != nil {
 		return nil, errors.Wrap(err, "Failed get chunks")
@@ -87,11 +88,12 @@ func (x *ChunkDynamoDB) GetReadableChunks(schema string, ts time.Time) ([]*Chunk
 	return chunks, nil
 }
 
-func (x *ChunkDynamoDB) GetWritableChunks(schema string, ts time.Time, size int64) ([]*Chunk, error) {
+func (x *ChunkDynamoDB) GetWritableChunks(schema, partition string, ts time.Time, size int64) ([]*Chunk, error) {
 	var chunks []*Chunk
 	query := x.table.
-		Get("pk", x.chunkKey(schema)).
-		Filter("'total_size' <= ? AND ? < 'freezed_at'", defaultChunkSizeMax-size, ts.Unix())
+		Get("pk", x.chunkPK(schema)).
+		Range("sk", dynamo.BeginsWith, partition+"/").
+		Filter("'total_size' <= ? AND ? < 'freezed_at'", defaultChunkSizeMax-size, ts.UTC().Unix())
 
 	if err := query.All(&chunks); err != nil {
 		return nil, errors.Wrap(err, "Failed get chunks")
@@ -100,15 +102,16 @@ func (x *ChunkDynamoDB) GetWritableChunks(schema string, ts time.Time, size int6
 	return chunks, nil
 }
 
-func (x *ChunkDynamoDB) PutChunk(obj S3Object, size int64, schema string, ts time.Time) error {
+func (x *ChunkDynamoDB) PutChunk(obj S3Object, size int64, schema, partition string, ts time.Time) error {
 	chunk := &Chunk{
-		PK: x.chunkKey(schema),
-		SK: uuid.New().String(),
+		PK: x.chunkPK(schema),
+		SK: partition + "/" + uuid.New().String(),
 
 		Schema:    schema,
+		Partition: partition,
 		S3Objects: []string{obj.Encode()},
 		TotalSize: size,
-		CreatedAt: ts.Unix(),
+		CreatedAt: ts.UTC().Unix(),
 		FreezedAt: ts.Add(x.ChunkFreezedAfter).Unix(),
 	}
 
@@ -125,7 +128,7 @@ func (x *ChunkDynamoDB) UpdateChunk(chunk *Chunk, obj S3Object, size int64, ts t
 		Range("sk", chunk.SK).
 		AddStringsToSet("s3_objects", obj.Encode()).
 		Add("total_size", size).
-		If("total_size < ? AND ? < freezed_at", x.ChunkSizeMax-size, ts.Unix())
+		If("total_size < ? AND ? < freezed_at", x.ChunkSizeMax-size, ts.UTC().Unix())
 
 	if err := query.Run(); err != nil {
 		if isConditionalCheckErr(err) || isResourceNotFoundErr(err) {
