@@ -123,7 +123,7 @@ func (x *ChunkDynamoDB) UpdateChunk(chunk *models.Chunk, obj models.S3Object, si
 func (x *ChunkDynamoDB) DeleteChunk(chunk *models.Chunk) (*models.Chunk, error) {
 	var old models.Chunk
 	if err := x.table.Delete("pk", chunk.PK).Range("sk", chunk.SK).OldValue(&old); err != nil {
-		if isResourceNotFoundErr(err) {
+		if isNoItemFoundErr(err) {
 			return nil, nil // Ignore if item not found
 		}
 

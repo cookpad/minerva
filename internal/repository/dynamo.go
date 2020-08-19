@@ -3,6 +3,7 @@ package repository
 import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/guregu/dynamo"
 )
 
 func isConditionalCheckErr(err error) bool {
@@ -17,4 +18,8 @@ func isResourceNotFoundErr(err error) bool {
 		return ae.Code() == dynamodb.ErrCodeResourceNotFoundException
 	}
 	return false
+}
+
+func isNoItemFoundErr(err error) bool {
+	return err == dynamo.ErrNotFound
 }

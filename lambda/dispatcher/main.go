@@ -27,13 +27,22 @@ func handler(args lambda.HandlerArguments) error {
 	var chunks []*models.Chunk
 	if len(event.Records) > 0 {
 		for _, record := range event.Records {
+			if record.EventName != "MODIFY" && record.EventName != "INSERT" {
+				continue
+			}
+			if record.Change.NewImage == nil {
+				continue
+			}
+
 			chunk, err := models.NewChunkFromDynamoEvent(record.Change.NewImage)
 			if err != nil {
 				logger.WithField("record", record).Error("NewChunkFromDynamoEvent")
 				return errors.Wrap(err, "Failed to parse record.Change.NewImage")
 			}
 
-			chunks = append(chunks, chunk)
+			if chunkService.IsMergableChunk(chunk, now) {
+				chunks = append(chunks, chunk)
+			}
 		}
 	} else {
 		idxChunks, err := chunkService.GetMergableChunks("index", now)
