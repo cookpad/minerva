@@ -2,16 +2,17 @@ package indexer
 
 import (
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 )
 
 type indexDumpers map[string]*indexDumper
 type messageDumpers map[string]*messageDumper
 
-type newDumperFunc func(dst internal.ParquetLocation) (dumper, error)
+type newDumperFunc func(dst models.ParquetLocation) (dumper, error)
 type dumpers map[string]dumper
 
-func (x dumpers) dump(dst internal.ParquetLocation, q *logQueue, objID int64, newDumper newDumperFunc) error {
+func (x dumpers) dump(dst models.ParquetLocation, q *logQueue, objID int64, newDumper newDumperFunc) error {
 	pKey := dst.S3Key()
 	d, ok := x[pKey]
 	if !ok {
@@ -30,9 +31,9 @@ func (x dumpers) dump(dst internal.ParquetLocation, q *logQueue, objID int64, ne
 	return nil
 }
 
-func newPqLoc(q *logQueue) (msgDst, idxDst internal.ParquetLocation) {
-	dst := internal.ParquetLocation{
-		MergeStat: internal.ParquetMergeStatUnmerged,
+func newPqLoc(q *logQueue) (msgDst, idxDst models.ParquetLocation) {
+	dst := models.ParquetLocation{
+		MergeStat: models.ParquetMergeStatUnmerged,
 		Timestamp: q.Timestamp,
 		SrcBucket: q.Src.Bucket,
 		SrcKey:    q.Src.Key,
@@ -42,8 +43,8 @@ func newPqLoc(q *logQueue) (msgDst, idxDst internal.ParquetLocation) {
 	msgDst = dst
 	idxDst = dst
 
-	msgDst.Schema = internal.ParquetSchemaMessage
-	idxDst.Schema = internal.ParquetSchemaIndex
+	msgDst.Schema = models.ParquetSchemaMessage
+	idxDst.Schema = models.ParquetSchemaIndex
 	return
 }
 

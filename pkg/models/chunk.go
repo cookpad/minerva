@@ -20,27 +20,43 @@ type Chunk struct {
 
 // NewChunkFromDynamoEvent builds Chunk by DynamoDBAttributeValue
 func NewChunkFromDynamoEvent(image map[string]events.DynamoDBAttributeValue) (*Chunk, error) {
-	totalSize, err := image["total_size"].Integer()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to read total_size")
-	}
-	createdAt, err := image["created_at"].Integer()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to read created_at")
-	}
-	freezedAt, err := image["freezed_at"].Integer()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to read freezed_at")
-	}
-
-	return &Chunk{
+	chunk := &Chunk{
 		Schema:    image["schema"].String(),
 		S3Objects: image["s3_objects"].StringSet(),
-		TotalSize: totalSize,
 		Partition: image["partition"].String(),
-		CreatedAt: createdAt,
-		FreezedAt: freezedAt,
 		PK:        image["pk"].String(),
 		SK:        image["sk"].String(),
-	}, nil
+	}
+
+	if v, ok := image["total_size"]; ok {
+		totalSize, err := v.Integer()
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to read total_size")
+		}
+		chunk.TotalSize = totalSize
+	} else {
+		return nil, errors.New("Failed to get total_size from DynamoRecord")
+	}
+
+	if v, ok := image["created_at"]; ok {
+		createdAt, err := v.Integer()
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to read created_at")
+		}
+		chunk.CreatedAt = createdAt
+	} else {
+		return nil, errors.New("Failed to get created_at from DynamoRecord")
+	}
+
+	if v, ok := image["freezed_at"]; ok {
+		freezedAt, err := v.Integer()
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to read freezed_at")
+		}
+		chunk.FreezedAt = freezedAt
+	} else {
+		return nil, errors.New("Failed to get freezed_at from DynamoRecord")
+	}
+
+	return chunk, nil
 }

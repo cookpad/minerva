@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/models"
 )
 
@@ -54,5 +53,5 @@ func testLoadMessageChannel(obj models.S3Object, input chan *LogQueue) chan *log
 	return ch
 }
 
-func (x *parquetFile) FilePath() string              { return x.filePath }
-func (x *parquetFile) Dst() internal.ParquetLocation { return x.dst }
+func (x *parquetFile) FilePath() string            { return x.filePath }
+func (x *parquetFile) Dst() models.ParquetLocation { return x.dst }

@@ -1,8 +1,9 @@
-package internal
+package models
 
 import (
 	"crypto/sha1"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -128,7 +129,7 @@ func (x ParquetLocation) schemaName() string {
 	case ParquetSchemaMessage:
 		return s3DirNameMessage
 	default:
-		Logger.WithField("location", x).Fatalf("Invalid schema: %v", x.Schema)
+		log.Fatalf("Invalid schema: %v", x.Schema)
 		return ""
 	}
 }

@@ -170,11 +170,11 @@ func TestDeleteObjects(t *testing.T) {
 	internal.TestInjectNewS3Client(&dummy)
 	defer internal.TestFixNewS3Client()
 
-	var tgt []internal.S3Location
+	var tgt []models.S3Object
 	var last string
 	for i := 0; i < 2019; i++ {
 		last = uuid.New().String()
-		tgt = append(tgt, internal.S3Location{Bucket: "b1", Key: last})
+		tgt = append(tgt, models.S3Object{Bucket: "b1", Key: last})
 	}
 
 	err := internal.DeleteS3Objects(tgt)
@@ -192,7 +192,7 @@ func TestIntegrationS3ObjectDownload(t *testing.T) {
 		t.Skip("S3_REGION, S3_BUCKET or S3_KEY is not available")
 	}
 
-	tmpFile, err := internal.DownloadS3Object(s3region, s3bucket, s3key)
+	tmpFile, err := internal.DownloadS3Object(models.NewS3Object(s3region, s3bucket, s3key))
 	assert.NoError(t, err)
 	assert.NotNil(t, tmpFile)
 	fmt.Println("downloaded =", *tmpFile)

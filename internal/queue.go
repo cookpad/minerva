@@ -32,13 +32,6 @@ type S3Location struct {
 	Size   int64  `json:"size,omitempty"`
 }
 
-// MergeQueue specify src object locations to be merged and destination object location.
-type MergeQueue struct {
-	Schema     ParquetSchemaName `json:"schema"`
-	SrcObjects []S3Location      `json:"src_objects"`
-	DstObject  S3Location        `json:"dst_object"`
-}
-
 // RecvObjectQueue has received ObjectQueue from SQS and error if something wrong
 type RecvObjectQueue struct {
 	Obj ObjectQueue

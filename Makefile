@@ -3,9 +3,8 @@ CWD := ${CURDIR}
 
 BIN_DIR := $(CODE_DIR)/build
 BINPATH := \
-	$(BIN_DIR)/makePartition \
-	$(BIN_DIR)/listIndexObject \
-	$(BIN_DIR)/mergeIndexObject \
+	$(BIN_DIR)/partitioner \
+	$(BIN_DIR)/merger \
 	$(BIN_DIR)/apiHandler \
 	$(BIN_DIR)/composer \
 	$(BIN_DIR)/dispatcher \
@@ -20,12 +19,10 @@ clean:
 
 build: $(BINPATH)
 
-$(BIN_DIR)/makePartition: $(CODE_DIR)/lambda/makePartition/*.go $(SRC)
-	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/makePartition $(CODE_DIR)/lambda/makePartition && cd $(CWD)
-$(BIN_DIR)/listIndexObject: $(CODE_DIR)/lambda/listIndexObject/*.go $(SRC)
-	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/listIndexObject $(CODE_DIR)/lambda/listIndexObject && cd $(CWD)
-$(BIN_DIR)/mergeIndexObject: $(CODE_DIR)/lambda/mergeIndexObject/*.go $(SRC)
-	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/mergeIndexObject $(CODE_DIR)/lambda/mergeIndexObject && cd $(CWD)
+$(BIN_DIR)/partitioner: $(CODE_DIR)/lambda/partitioner/*.go $(SRC)
+	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/partitioner $(CODE_DIR)/lambda/partitioner && cd $(CWD)
+$(BIN_DIR)/merger: $(CODE_DIR)/lambda/merger/*.go $(SRC)
+	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/merger $(CODE_DIR)/lambda/merger && cd $(CWD)
 $(BIN_DIR)/composer: $(CODE_DIR)/lambda/composer/*.go $(SRC)
 	cd $(CODE_DIR) && env GOARCH=amd64 GOOS=linux go build -v $(BUILD_OPT) -o $(BIN_DIR)/composer $(CODE_DIR)/lambda/composer && cd $(CWD)
 $(BIN_DIR)/dispatcher: $(CODE_DIR)/lambda/dispatcher/*.go $(SRC)

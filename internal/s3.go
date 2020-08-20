@@ -67,12 +67,12 @@ func UploadFileToS3(filePath string, dst models.S3Object) error {
 
 const s3DownloadBufferSize = 2 * 1024 * 1024 // 2MB
 
-// Downloadmodels.S3Object downloads a specified remote object from S3
-func DownloadS3Object(s3region, s3bucket, s3key string) (*string, error) {
-	client := newS3Client(s3region)
+// DownloadS3Object downloads a specified remote object from S3
+func DownloadS3Object(obj models.S3Object) (*string, error) {
+	client := newS3Client(obj.Region)
 	input := &s3.GetObjectInput{
-		Bucket: &s3bucket,
-		Key:    &s3key,
+		Bucket: &obj.Bucket,
+		Key:    &obj.Key,
 	}
 
 	resp, err := client.GetObject(input)
@@ -80,16 +80,16 @@ func DownloadS3Object(s3region, s3bucket, s3key string) (*string, error) {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == s3.ErrCodeNoSuchKey {
 				Logger.WithFields(logrus.Fields{
-					"bucket": s3bucket,
-					"key":    s3key,
+					"bucket": obj.Bucket,
+					"key":    obj.Key,
 				}).Warn("No such key, ignored")
 				return nil, nil
 			}
 
-			return nil, errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", s3bucket, s3key)
+			return nil, errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", obj.Bucket, obj.Key)
 		}
 
-		return nil, errors.Wrapf(err, "Fail to upload a parquet file in https: %s/%s", s3bucket, s3key)
+		return nil, errors.Wrapf(err, "Fail to upload a parquet file in https: %s/%s", obj.Bucket, obj.Key)
 
 	}
 
@@ -129,7 +129,7 @@ func DownloadS3Object(s3region, s3bucket, s3key string) (*string, error) {
 
 	Logger.WithFields(logrus.Fields{
 		"write": writeBytes, "read": readBytes,
-		"fpath": fname, "srckey": s3key,
+		"fpath": fname, "srckey": obj.Key,
 	}).Trace("Downloaded S3 object")
 
 	return &fname, nil
@@ -232,7 +232,7 @@ const (
 )
 
 // DeleteS3Objects is warpper of s3.DeleteObjects
-func DeleteS3Objects(locations []S3Location) error {
+func DeleteS3Objects(locations []models.S3Object) error {
 	if len(locations) == 0 {
 		Logger.Warn("No target for DeleteObjects")
 		return nil

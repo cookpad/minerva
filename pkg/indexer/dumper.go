@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/xitongsys/parquet-go-source/local"
@@ -20,21 +21,21 @@ type dumper interface {
 	Close() error
 	Delete() error
 	Type() string
-	Schema() internal.ParquetSchemaName
+	Schema() models.ParquetSchemaName
 }
 
 // baseDumper
 type baseDumper struct {
 	files    []*parquetFile
 	current  *parquetFile
-	baseDst  internal.ParquetLocation
+	baseDst  models.ParquetLocation
 	obj      interface{}
 	dataSize int
 }
 
 type parquetFile struct {
 	filePath string
-	dst      internal.ParquetLocation
+	dst      models.ParquetLocation
 	dataSize int
 	pw       *writer.ParquetWriter
 	fw       source.ParquetFile
@@ -54,10 +55,10 @@ const (
 	parquetRowGroupSize = 16 * 1024 * 1024 // 16M
 )
 
-func (x *baseDumper) Files() []*parquetFile              { return x.files }
-func (x *baseDumper) Schema() internal.ParquetSchemaName { return x.baseDst.Schema }
+func (x *baseDumper) Files() []*parquetFile            { return x.files }
+func (x *baseDumper) Schema() models.ParquetSchemaName { return x.baseDst.Schema }
 
-func (x *baseDumper) init(v interface{}, dst internal.ParquetLocation) error {
+func (x *baseDumper) init(v interface{}, dst models.ParquetLocation) error {
 	x.obj = v
 	x.baseDst = dst
 	return x.open()
@@ -158,14 +159,14 @@ type indexDumper struct {
 	tokenizer *internal.SimpleTokenizer
 }
 
-func newIndexDumper(dst internal.ParquetLocation) (dumper, error) {
+func newIndexDumper(dst models.ParquetLocation) (dumper, error) {
 	d := &indexDumper{
 		tokenizer: internal.NewSimpleTokenizer(),
 	}
 
 	d.tokenizer.DisableRegex()
 
-	if err := d.init(new(internal.IndexRecord), dst); err != nil {
+	if err := d.init(new(models.IndexRecord), dst); err != nil {
 		return nil, err
 	}
 
@@ -196,7 +197,7 @@ func (x *indexDumper) Dump(q *logQueue, objID int64) error {
 	}
 
 	for it := range terms {
-		rec := internal.IndexRecord{
+		rec := models.IndexRecord{
 			Tag:       q.Tag,
 			Timestamp: q.Timestamp.Unix(),
 			Field:     it.field,
@@ -227,10 +228,10 @@ type messageDumper struct {
 	baseDumper
 }
 
-func newMessageDumper(dst internal.ParquetLocation) (dumper, error) {
+func newMessageDumper(dst models.ParquetLocation) (dumper, error) {
 	d := &messageDumper{}
 
-	if err := d.init(new(internal.MessageRecord), dst); err != nil {
+	if err := d.init(new(models.MessageRecord), dst); err != nil {
 		return nil, err
 	}
 
@@ -238,7 +239,7 @@ func newMessageDumper(dst internal.ParquetLocation) (dumper, error) {
 }
 
 func (x *messageDumper) Dump(q *logQueue, objID int64) error {
-	rec := internal.MessageRecord{
+	rec := models.MessageRecord{
 		Timestamp: q.Timestamp.Unix(),
 		Message:   q.Message,
 		ObjectID:  objID,

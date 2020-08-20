@@ -83,7 +83,7 @@ func TestCreateParquet(t *testing.T) {
 	require.Equal(t, 2, len(dumpers))
 
 	idxDumper, msgDumper := dumpers[0], dumpers[1]
-	if idxDumper.Schema() != internal.ParquetSchemaIndex {
+	if idxDumper.Schema() != models.ParquetSchemaIndex {
 		// Use index dumper for test
 		idxDumper, msgDumper = dumpers[1], dumpers[0]
 	}
@@ -102,14 +102,14 @@ func TestCreateParquet(t *testing.T) {
 	fr, err := local.NewLocalFileReader(idxFileList[0].FilePath())
 	require.NoError(t, err)
 
-	pr, err := reader.NewParquetReader(fr, new(internal.IndexRecord), 4)
+	pr, err := reader.NewParquetReader(fr, new(models.IndexRecord), 4)
 	require.NoError(t, err)
 
 	num := int(pr.GetNumRows())
 	require.NotEqual(t, 0, num)
 	read := false
 
-	rec := make([]internal.IndexRecord, 1) //read 1 rows
+	rec := make([]models.IndexRecord, 1) //read 1 rows
 	err = pr.Read(&rec)
 	require.NoError(t, err)
 	assert.NotEmpty(t, rec[0].Field)
@@ -127,12 +127,12 @@ func TestCreateParquet(t *testing.T) {
 	fr, err = local.NewLocalFileReader(msgFileList[0].FilePath())
 	require.NoError(t, err)
 
-	pr, err = reader.NewParquetReader(fr, new(internal.MessageRecord), 4)
+	pr, err = reader.NewParquetReader(fr, new(models.MessageRecord), 4)
 	require.NoError(t, err)
 
 	num = int(pr.GetNumRows())
 	assert.NotEqual(t, 0, num)
-	mrec := make([]internal.MessageRecord, 1) //read 1 rows
+	mrec := make([]models.MessageRecord, 1) //read 1 rows
 	err = pr.Read(&mrec)
 	require.NoError(t, err)
 	assert.NotEmpty(t, mrec[0].Message)
@@ -181,7 +181,7 @@ func TestSplitLargeParquetFiles(t *testing.T) {
 	require.Equal(t, 2, len(dumpers))
 
 	idxDumper, msgDumper := dumpers[0], dumpers[1]
-	if idxDumper.Schema() != internal.ParquetSchemaIndex {
+	if idxDumper.Schema() != models.ParquetSchemaIndex {
 		// Use index dumper for test
 		idxDumper, msgDumper = dumpers[1], dumpers[0]
 	}

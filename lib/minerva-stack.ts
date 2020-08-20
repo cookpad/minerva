@@ -172,9 +172,9 @@ export class MinervaStack extends cdk.Stack {
       targets: [new eventTargets.LambdaFunction(this.dispatcher)],
     });
 
-    this.merger = new lambda.Function(this, "mergeIndexObject", {
+    this.merger = new lambda.Function(this, "merger", {
       runtime: lambda.Runtime.GO_1_X,
-      handler: "mergeIndexObject",
+      handler: "merger",
       code: buildPath,
       role: lambdaRole,
       timeout: cdk.Duration.seconds(450),
@@ -184,9 +184,9 @@ export class MinervaStack extends cdk.Stack {
       environment: defaultEnvVars,
     });
 
-    this.partitioner = new lambda.Function(this, "makePartition", {
+    this.partitioner = new lambda.Function(this, "partitioner", {
       runtime: lambda.Runtime.GO_1_X,
-      handler: "makePartition",
+      handler: "partitioner",
       code: buildPath,
       role: lambdaRole,
       timeout: cdk.Duration.seconds(30),

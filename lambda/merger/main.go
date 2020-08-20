@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/lambda"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 	"github.com/xitongsys/parquet-go-source/local"
@@ -14,15 +15,126 @@ import (
 	"github.com/xitongsys/parquet-go/writer"
 )
 
+var logger = internal.Logger
+
+func main() {
+	lambda.StartHandler(handler)
+}
+
+/*
+func handler(args lambda.HandlerArguments) error {
+
+	logger.WithField("event.records.len", len(event.Records)).Debug("Start handler")
+
+	for _, record := range event.Records {
+		var queue internal.MergeQueue
+		if err := json.Unmarshal([]byte(record.Body), &queue); err != nil {
+			err = errors.Wrapf(err, "Fail to unmarshal SQS message body: %s", record.Body)
+			internal.HandleError(err)
+			return err
+		}
+
+		args := arguments{
+			Queue: queue,
+		}
+
+		logger.WithField("args", args).Info("Start indexer")
+		if err := mergeParquet(args); err != nil {
+			err = errors.Wrap(err, "Fail to merge parquet files")
+			internal.HandleError(err)
+			return err
+		}
+	}
+
+	return nil
+}
+*/
+
+func handler(args lambda.HandlerArguments) error {
+	records, err := args.DecapSQSEvent()
+	if err != nil {
+		return err
+	}
+
+	for _, record := range records {
+		var q models.MergeQueue
+		if err := record.Bind(&q); err != nil {
+			return err
+		}
+
+		if err := mergeChunk(args, &q); err != nil {
+			return errors.Wrap(err, "Failed composeChunka")
+		}
+	}
+
+	return nil
+}
+
+func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
+	ch := make(chan *recordQueue)
+	accessorMap := map[models.ParquetSchemaName]accessor{
+		models.ParquetSchemaIndex:   &indexAccessor{},
+		models.ParquetSchemaMessage: &messageAccessor{},
+	}
+
+	acr, ok := accessorMap[q.Schema]
+	if !ok {
+		logger.WithField("queue", q).Errorf("Unsupported schema: %s", q.Schema)
+		return fmt.Errorf("Unsupported schema: %s", q.Schema)
+	}
+
+	var mergedFile *string
+	var err error
+
+	if len(q.SrcObjects) == 1 {
+		mergedFile, err = downloadRecord(q.SrcObjects[0])
+		if err != nil {
+			return err
+		}
+	} else {
+		go func() {
+			defer close(ch)
+			for _, src := range q.SrcObjects {
+				loadRecord(ch, src, acr)
+			}
+		}()
+
+		mergedFile, err = dumpParquet(ch, acr)
+		if err != nil {
+			return err
+		}
+		if mergedFile == nil {
+			logger.Warn("No available merged file")
+			return nil
+		}
+	}
+
+	if mergedFile != nil {
+		defer os.Remove(*mergedFile)
+
+		dst := models.NewS3Object(q.DstObject.Region, q.DstObject.Bucket, q.DstObject.Key)
+		if err := internal.UploadFileToS3(*mergedFile, dst); err != nil {
+			return err
+		}
+	}
+
+	if err := internal.DeleteS3Objects(q.SrcObjects); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/*
 type arguments struct {
 	Queue     internal.MergeQueue
 	NotDelete bool
 }
-
+*/
 type recordQueue struct {
 	Err            error
-	IndexRecords   []internal.IndexRecord
-	MessageRecords []internal.MessageRecord
+	IndexRecords   []models.IndexRecord
+	MessageRecords []models.MessageRecord
 }
 
 type accessor interface {
@@ -33,9 +145,9 @@ type accessor interface {
 
 type indexAccessor struct{}
 
-func (x *indexAccessor) newObj() interface{} { return new(internal.IndexRecord) }
+func (x *indexAccessor) newObj() interface{} { return new(models.IndexRecord) }
 func (x *indexAccessor) read(pr *reader.ParquetReader, q *recordQueue, s int) error {
-	rows := make([]internal.IndexRecord, s)
+	rows := make([]models.IndexRecord, s)
 	if err := pr.Read(&rows); err != nil {
 		return err
 	}
@@ -54,9 +166,9 @@ func (x *indexAccessor) dump(pw *writer.ParquetWriter, q *recordQueue) error {
 
 type messageAccessor struct{}
 
-func (x *messageAccessor) newObj() interface{} { return new(internal.MessageRecord) }
+func (x *messageAccessor) newObj() interface{} { return new(models.MessageRecord) }
 func (x *messageAccessor) read(pr *reader.ParquetReader, q *recordQueue, s int) error {
-	rows := make([]internal.MessageRecord, s)
+	rows := make([]models.MessageRecord, s)
 	if err := pr.Read(&rows); err != nil {
 		return err
 	}
@@ -73,16 +185,16 @@ func (x *messageAccessor) dump(pw *writer.ParquetWriter, q *recordQueue) error {
 	return nil
 }
 
-func downloadRecord(src internal.S3Location) (*string, error) {
-	fname, err := internal.DownloadS3Object(src.Region, src.Bucket, src.Key)
+func downloadRecord(src models.S3Object) (*string, error) {
+	fname, err := internal.DownloadS3Object(src)
 	if err != nil {
 		return nil, err
 	}
 	return fname, nil
 }
 
-func loadRecord(ch chan *recordQueue, src internal.S3Location, ac accessor) {
-	fname, err := internal.DownloadS3Object(src.Region, src.Bucket, src.Key)
+func loadRecord(ch chan *recordQueue, src models.S3Object, ac accessor) {
+	fname, err := internal.DownloadS3Object(src)
 	if err != nil {
 		ch <- &recordQueue{Err: err}
 		return
@@ -168,59 +280,4 @@ func dumpParquet(ch chan *recordQueue, ac accessor) (*string, error) {
 	logger.WithField("queueCount", queueCount).Debugf("Dumped indices: %v", filePath)
 
 	return &filePath, nil
-}
-
-func mergeParquet(args arguments) error {
-	ch := make(chan *recordQueue)
-	accessorMap := map[internal.ParquetSchemaName]accessor{
-		internal.ParquetSchemaIndex:   &indexAccessor{},
-		internal.ParquetSchemaMessage: &messageAccessor{},
-	}
-
-	acr, ok := accessorMap[args.Queue.Schema]
-	if !ok {
-		logger.WithField("queue", args.Queue).Errorf("Unsupported schema: %s", args.Queue.Schema)
-		return fmt.Errorf("Unsupported schema: %s", args.Queue.Schema)
-	}
-
-	var mergedFile *string
-	var err error
-
-	if len(args.Queue.SrcObjects) == 1 {
-		mergedFile, err = downloadRecord(args.Queue.SrcObjects[0])
-		if err != nil {
-			return err
-		}
-	} else {
-		go func() {
-			defer close(ch)
-			for _, src := range args.Queue.SrcObjects {
-				loadRecord(ch, src, acr)
-			}
-		}()
-
-		mergedFile, err = dumpParquet(ch, acr)
-		if err != nil {
-			return err
-		}
-		if mergedFile == nil {
-			logger.Warn("No available merged file")
-			return nil
-		}
-	}
-
-	if mergedFile != nil {
-		defer os.Remove(*mergedFile)
-
-		dst := models.NewS3Object(args.Queue.DstObject.Region, args.Queue.DstObject.Bucket, args.Queue.DstObject.Key)
-		if err := internal.UploadFileToS3(*mergedFile, dst); err != nil {
-			return err
-		}
-	}
-
-	if err := internal.DeleteS3Objects(args.Queue.SrcObjects); err != nil {
-		return err
-	}
-
-	return nil
 }
