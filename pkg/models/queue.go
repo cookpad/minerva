@@ -14,3 +14,10 @@ type MergeQueue struct {
 	SrcObjects []S3Object        `json:"src_objects"`
 	DstObject  S3Object          `json:"dst_object"`
 }
+
+// PartitionQueue is arguments of partitioner to add a new partition
+type PartitionQueue struct {
+	Location  string            `json:"location"`
+	TableName string            `json:"table_name"`
+	Keys      map[string]string `json:"keys"`
+}

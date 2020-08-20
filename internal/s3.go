@@ -15,6 +15,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	// DeleteObjects can have a list of up to 1000 keys
+	// https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
+	maxNumberOfS3DeletableObject = 1000
+
+	s3DownloadBufferSize = 2 * 1024 * 1024 // 2MB
+)
+
 type s3Client interface {
 	GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error)
 	PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error)
@@ -64,8 +72,6 @@ func UploadFileToS3(filePath string, dst models.S3Object) error {
 
 	return nil
 }
-
-const s3DownloadBufferSize = 2 * 1024 * 1024 // 2MB
 
 // DownloadS3Object downloads a specified remote object from S3
 func DownloadS3Object(obj models.S3Object) (*string, error) {
@@ -134,102 +140,6 @@ func DownloadS3Object(obj models.S3Object) (*string, error) {
 
 	return &fname, nil
 }
-
-// ListS3Objects is warpper of s3.ListObjectsV2
-func ListS3Objects(s3region, s3bucket, s3prefix string) ([]string, error) {
-	client := newS3Client(s3region)
-	input := &s3.ListObjectsV2Input{
-		Bucket:    &s3bucket,
-		Prefix:    &s3prefix,
-		Delimiter: aws.String("/"),
-	}
-
-	resp, err := client.ListObjectsV2(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				return nil, errors.Wrapf(aerr, "Fail to list objects in AWS: %s/%s", s3bucket, s3prefix)
-			}
-		} else {
-			return nil, errors.Wrapf(aerr, "Fail to list objects in http request: %s/%s", s3bucket, s3prefix)
-		}
-	}
-
-	Logger.WithField("resp", resp).Trace("listed a parquet file")
-	var objects []string
-	for _, prefix := range resp.CommonPrefixes {
-		objects = append(objects, *prefix.Prefix)
-	}
-
-	return objects, nil
-}
-
-// FindS3ObjectQueue is a result of FindS3Objects
-type FindS3ObjectQueue struct {
-	Err    error
-	Object *s3.Object
-}
-
-const findS3ObjectQueueSize = 128
-
-// FindS3Objects is warpper of s3.ListObjectsV2
-func FindS3Objects(s3region, s3bucket, s3prefix string) chan *FindS3ObjectQueue {
-	ch := make(chan *FindS3ObjectQueue, findS3ObjectQueueSize)
-
-	go func() {
-		defer close(ch)
-
-		client := newS3Client(s3region)
-		var startAfter *string
-
-		for {
-			input := &s3.ListObjectsV2Input{
-				Bucket:     &s3bucket,
-				Prefix:     &s3prefix,
-				StartAfter: startAfter,
-			}
-
-			resp, err := client.ListObjectsV2(input)
-			if err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					ch <- &FindS3ObjectQueue{
-						Err: errors.Wrapf(aerr, "Fail to list objects in AWS: %s/%s", s3bucket, s3prefix),
-					}
-				} else {
-					ch <- &FindS3ObjectQueue{
-						Err: errors.Wrapf(err, "Fail to list objects in http request: %s/%s", s3bucket, s3prefix),
-					}
-				}
-				return
-			}
-
-			Logger.WithField("resp", resp).Trace("listed a parquet file")
-
-			for _, content := range resp.Contents {
-				q := new(FindS3ObjectQueue)
-				q.Object = content
-				ch <- q
-			}
-
-			if resp.IsTruncated == nil || !(*resp.IsTruncated) {
-				return
-			}
-
-			startAfter = resp.Contents[len(resp.Contents)-1].Key
-
-			Logger.WithField("startAfter", *startAfter).Debug("Truncated")
-		}
-	}()
-
-	return ch
-}
-
-const (
-	// DeleteObjects can have a list of up to 1000 keys
-	// https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
-	maxNumberOfS3DeletableObject = 1000
-)
 
 // DeleteS3Objects is warpper of s3.DeleteObjects
 func DeleteS3Objects(locations []models.S3Object) error {

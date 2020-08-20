@@ -125,12 +125,6 @@ func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
 	return nil
 }
 
-/*
-type arguments struct {
-	Queue     internal.MergeQueue
-	NotDelete bool
-}
-*/
 type recordQueue struct {
 	Err            error
 	IndexRecords   []models.IndexRecord
