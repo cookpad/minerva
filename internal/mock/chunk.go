@@ -23,7 +23,8 @@ func NewChunkMockDB() *ChunkMockDB {
 
 // GetWritableChunks returns writable chunks for now (because chunks are not locked)
 func (x *ChunkMockDB) GetWritableChunks(schema, partition string, ts time.Time, writableTotalSize int64) ([]*models.Chunk, error) {
-	dataMap, ok := x.Data[schema]
+	pk := "chunk/" + schema
+	dataMap, ok := x.Data[pk]
 	if !ok {
 		return nil, nil
 	}
@@ -44,7 +45,8 @@ func (x *ChunkMockDB) GetWritableChunks(schema, partition string, ts time.Time, 
 
 // GetMergableChunks returns mergable chunks exceeding freezedAt or minChunkSize
 func (x *ChunkMockDB) GetMergableChunks(schema string, ts time.Time, minChunkSize int64) ([]*models.Chunk, error) {
-	dataMap, ok := x.Data[schema]
+	pk := "chunk/" + schema
+	dataMap, ok := x.Data[pk]
 	if !ok {
 		return nil, nil
 	}
@@ -62,7 +64,7 @@ func (x *ChunkMockDB) GetMergableChunks(schema string, ts time.Time, minChunkSiz
 // PutChunk saves a new chunk into DB. The chunk must be overwritten by UUID.
 func (x *ChunkMockDB) PutChunk(obj models.S3Object, objSize int64, schema, partition string, created time.Time, freezed time.Time) error {
 	chunkKey := uuid.New().String()
-	pk := schema
+	pk := "chunk/" + schema
 	sk := partition + "/" + chunkKey
 
 	chunk := &models.Chunk{
