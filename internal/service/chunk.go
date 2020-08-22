@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	defaultChunkKeyPrefix    = "chunk/"
-	defaultChunkFreezedAfter = time.Minute * 5
-	defaultChunkChunkMaxSize = 128 * 1000 * 1000
-	defaultChunkChunkMinSize = 100 * 1000 * 1000
+	DefaultChunkKeyPrefix    = "chunk/"
+	DefaultChunkFreezedAfter = time.Minute * 5
+	DefaultChunkChunkMaxSize = 128 * 1000 * 1000
+	DefaultChunkChunkMinSize = 100 * 1000 * 1000
 )
 
 type ChunkService struct {
@@ -36,13 +36,13 @@ func NewChunkService(repo repository.ChunkRepository, args *ChunkServiceArgument
 	}
 
 	if service.args.FreezedAfter == 0 {
-		service.args.FreezedAfter = defaultChunkFreezedAfter
+		service.args.FreezedAfter = DefaultChunkFreezedAfter
 	}
 	if service.args.ChunkMaxSize == 0 {
-		service.args.ChunkMaxSize = defaultChunkChunkMaxSize
+		service.args.ChunkMaxSize = DefaultChunkChunkMaxSize
 	}
 	if service.args.ChunkMinSize == 0 {
-		service.args.ChunkMinSize = defaultChunkChunkMinSize
+		service.args.ChunkMinSize = DefaultChunkChunkMinSize
 	}
 
 	return service

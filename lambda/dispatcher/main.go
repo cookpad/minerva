@@ -12,10 +12,11 @@ import (
 var logger = lambda.Logger
 
 func main() {
-	lambda.StartHandler(handler)
+	lambda.StartHandler(Handler)
 }
 
-func handler(args lambda.HandlerArguments) error {
+// Handler is main procedure of dispatcher
+func Handler(args lambda.HandlerArguments) error {
 	var event events.DynamoDBEvent
 	if err := args.BindEvent(&event); err != nil {
 		return err
