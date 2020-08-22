@@ -10,8 +10,8 @@ import (
 const (
 	defaultChunkKeyPrefix    = "chunk/"
 	defaultChunkFreezedAfter = time.Minute * 5
-	defaultChunkSizeMax      = 128 * 1000 * 1000
-	defaultChunkSizeMin      = 100 * 1000 * 1000
+	defaultChunkChunkMaxSize = 128 * 1000 * 1000
+	defaultChunkChunkMinSize = 100 * 1000 * 1000
 )
 
 type ChunkService struct {
@@ -21,8 +21,8 @@ type ChunkService struct {
 
 type ChunkServiceArguments struct {
 	FreezedAfter time.Duration
-	SizeMax      int64
-	SizeMin      int64
+	ChunkMaxSize int64
+	ChunkMinSize int64
 }
 
 func NewChunkService(repo repository.ChunkRepository, args *ChunkServiceArguments) *ChunkService {
@@ -38,30 +38,32 @@ func NewChunkService(repo repository.ChunkRepository, args *ChunkServiceArgument
 	if service.args.FreezedAfter == 0 {
 		service.args.FreezedAfter = defaultChunkFreezedAfter
 	}
-	if service.args.SizeMax == 0 {
-		service.args.SizeMax = defaultChunkSizeMax
+	if service.args.ChunkMaxSize == 0 {
+		service.args.ChunkMaxSize = defaultChunkChunkMaxSize
 	}
-	if service.args.SizeMin == 0 {
-		service.args.SizeMin = defaultChunkSizeMax
+	if service.args.ChunkMinSize == 0 {
+		service.args.ChunkMinSize = defaultChunkChunkMinSize
 	}
 
 	return service
 }
 
-func (x *ChunkService) GetWritableChunks(schema, partition string, ts time.Time, size int64) ([]*models.Chunk, error) {
-	return x.repo.GetWritableChunks(schema, partition, ts, x.args.SizeMax-size)
+func (x *ChunkService) GetWritableChunks(schema, partition string, ts time.Time, objSize int64) ([]*models.Chunk, error) {
+	writableTotalSize := minInt64(x.args.ChunkMinSize, x.args.ChunkMaxSize-objSize)
+	return x.repo.GetWritableChunks(schema, partition, ts, writableTotalSize)
 }
 
 func (x *ChunkService) GetMergableChunks(schema string, ts time.Time) ([]*models.Chunk, error) {
-	return x.repo.GetMergableChunks(schema, ts, x.args.SizeMin)
+	return x.repo.GetMergableChunks(schema, ts, x.args.ChunkMinSize)
 }
 
 func (x *ChunkService) PutChunk(obj models.S3Object, size int64, schema, partition string, ts time.Time) error {
 	return x.repo.PutChunk(obj, size, schema, partition, ts, ts.Add(x.args.FreezedAfter))
 }
 
-func (x *ChunkService) UpdateChunk(chunk *models.Chunk, obj models.S3Object, size int64, ts time.Time) error {
-	return x.repo.UpdateChunk(chunk, obj, size, x.args.SizeMax-size, ts)
+func (x *ChunkService) UpdateChunk(chunk *models.Chunk, obj models.S3Object, objSize int64, ts time.Time) error {
+	writableTotalSize := minInt64(x.args.ChunkMinSize, x.args.ChunkMaxSize-objSize)
+	return x.repo.UpdateChunk(chunk, obj, objSize, writableTotalSize, ts)
 }
 
 func (x *ChunkService) DeleteChunk(chunk *models.Chunk) (*models.Chunk, error) {
@@ -69,5 +71,12 @@ func (x *ChunkService) DeleteChunk(chunk *models.Chunk) (*models.Chunk, error) {
 }
 
 func (x *ChunkService) IsMergableChunk(chunk *models.Chunk, ts time.Time) bool {
-	return x.args.SizeMin <= chunk.TotalSize && chunk.FreezedAt <= ts.UTC().Unix()
+	return x.args.ChunkMinSize <= chunk.TotalSize && chunk.FreezedAt <= ts.UTC().Unix()
+}
+
+func minInt64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
 }

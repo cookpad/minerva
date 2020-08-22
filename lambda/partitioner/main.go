@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -20,7 +21,7 @@ func handleRequest(ctx context.Context, event events.SQSEvent) error {
 	logger.WithField("event", event).Debug("Start handler")
 
 	for _, msg := range event.Records {
-		var q internal.PartitionQueue
+		var q models.PartitionQueue
 		if err := json.Unmarshal([]byte(msg.Body), &q); err != nil {
 			err = errors.Wrapf(err, "Fail to unmarshal PartitionQueue: %s", msg.Body)
 			internal.HandleError(err)

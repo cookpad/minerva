@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/lambda"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
@@ -60,6 +61,24 @@ func handler(args lambda.HandlerArguments) error {
 	logger.WithField("chunks", chunks).Info("waiwai")
 
 	for _, chunk := range chunks {
+		src, err := chunk.ToS3ObjectSlice()
+		if err != nil {
+			return errors.Wrap(err, "Failed ToS3ObjectSlice")
+		}
+
+		s3Key := models.BuildMergedS3ObjectKey(args.S3Prefix, chunk.Schema, chunk.Partition, chunk.ChunkKey)
+		dst := models.NewS3Object(args.S3Region, args.S3Bucket, s3Key)
+		q := models.MergeQueue{
+			Schema:     models.ParquetSchemaName(chunk.Schema),
+			SrcObjects: src,
+			DstObject:  dst,
+		}
+
+		if err := internal.SendSQS(q, args.AwsRegion, args.MergeQueueURL); err != nil {
+			logger.WithField("queue", q).Error("internal.SendSQS")
+			return errors.Wrap(err, "Failed SendSQS")
+		}
+
 		if _, err := chunkService.DeleteChunk(chunk); err != nil {
 			logger.WithField("chunk", chunk).WithError(err).Error("DeleteChunk")
 			return errors.Wrap(err, "Failed chunkService.DeleteChunk")

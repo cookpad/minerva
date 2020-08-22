@@ -112,7 +112,7 @@ func makeIndex(args arguments, record events.S3EventRecord) error {
 				return errors.Wrapf(err, "Fail to remove dump file: %s", f.filePath)
 			}
 
-			partQueue := internal.PartitionQueue{
+			partQueue := models.PartitionQueue{
 				Location:  f.dst.PartitionLocation(),
 				TableName: f.dst.TableName(),
 				Keys:      f.dst.PartitionKeys(),

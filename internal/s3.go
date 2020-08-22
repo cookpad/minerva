@@ -142,7 +142,7 @@ func DownloadS3Object(obj models.S3Object) (*string, error) {
 }
 
 // DeleteS3Objects is warpper of s3.DeleteObjects
-func DeleteS3Objects(locations []models.S3Object) error {
+func DeleteS3Objects(locations []*models.S3Object) error {
 	if len(locations) == 0 {
 		Logger.Warn("No target for DeleteObjects")
 		return nil

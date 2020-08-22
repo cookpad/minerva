@@ -129,52 +129,16 @@ func TestS3PutObject(t *testing.T) {
 	assert.Equal(t, "five timeless words", string(dummy.body))
 }
 
-func TestListS3Objects(t *testing.T) {
-	var dummy dummyS3Client
-	internal.TestInjectNewS3Client(&dummy)
-	defer internal.TestFixNewS3Client()
-
-	dirs, err := internal.ListS3Objects("dokoka", "nanika", "sowaka")
-	require.NoError(t, err)
-
-	assert.Equal(t, "nanika", dummy.bucket)
-	assert.Equal(t, "sowaka", dummy.prefix)
-	assert.Equal(t, "blue", dirs[0])
-	assert.Equal(t, "orange", dirs[1])
-}
-
-func TestFindS3Objects(t *testing.T) {
-	var dummy dummyS3ClientIter
-	internal.TestInjectNewS3Client(&dummy)
-	defer internal.TestFixNewS3Client()
-
-	ch := internal.FindS3Objects("dokoka", "nanika", "sowaka")
-
-	q1 := <-ch
-	q2 := <-ch
-	q3 := <-ch
-	q4 := <-ch
-
-	assert.NotNil(t, q1)
-	assert.NotNil(t, q2)
-	assert.NotNil(t, q3)
-	assert.Nil(t, q4)
-	assert.Equal(t, "blue.txt", *q1.Object.Key)
-	assert.Equal(t, "orange.txt", *q2.Object.Key)
-	assert.Equal(t, "five.txt", *q3.Object.Key)
-	assert.Equal(t, "orange.txt", dummy.startAfter)
-}
-
 func TestDeleteObjects(t *testing.T) {
 	var dummy dummyS3Client
 	internal.TestInjectNewS3Client(&dummy)
 	defer internal.TestFixNewS3Client()
 
-	var tgt []models.S3Object
+	var tgt []*models.S3Object
 	var last string
 	for i := 0; i < 2019; i++ {
 		last = uuid.New().String()
-		tgt = append(tgt, models.S3Object{Bucket: "b1", Key: last})
+		tgt = append(tgt, &models.S3Object{Bucket: "b1", Key: last})
 	}
 
 	err := internal.DeleteS3Objects(tgt)

@@ -12,10 +12,25 @@ type Chunk struct {
 	Partition string   `dynamo:"partition"`
 	CreatedAt int64    `dynamo:"created_at"`
 	FreezedAt int64    `dynamo:"freezed_at"`
+	ChunkKey  string   `dynamo:"chunk_key"`
 
 	// For DynamoDB
 	PK string `dynamo:"pk"`
 	SK string `dynamo:"sk"`
+}
+
+func (x *Chunk) ToS3ObjectSlice() ([]*S3Object, error) {
+	var output []*S3Object
+	for _, encObj := range x.S3Objects {
+		obj, err := DecodeS3Object(encObj)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed DecodeS3Object")
+		}
+
+		output = append(output, obj)
+	}
+
+	return output, nil
 }
 
 // NewChunkFromDynamoEvent builds Chunk by DynamoDBAttributeValue
@@ -24,6 +39,7 @@ func NewChunkFromDynamoEvent(image map[string]events.DynamoDBAttributeValue) (*C
 		Schema:    image["schema"].String(),
 		S3Objects: image["s3_objects"].StringSet(),
 		Partition: image["partition"].String(),
+		ChunkKey:  image["chunk_key"].String(),
 		PK:        image["pk"].String(),
 		SK:        image["sk"].String(),
 	}

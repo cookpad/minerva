@@ -10,11 +10,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/athena"
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
-func createPartition(region, athenaDB string, p internal.PartitionQueue, meta internal.MetaAccessor, output string) error {
+func createPartition(region, athenaDB string, p models.PartitionQueue, meta internal.MetaAccessor, output string) error {
 	ssn := session.Must(session.NewSession(&aws.Config{Region: aws.String(region)}))
 	pkey := p.Location
 

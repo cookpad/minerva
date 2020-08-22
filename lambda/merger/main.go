@@ -21,35 +21,6 @@ func main() {
 	lambda.StartHandler(handler)
 }
 
-/*
-func handler(args lambda.HandlerArguments) error {
-
-	logger.WithField("event.records.len", len(event.Records)).Debug("Start handler")
-
-	for _, record := range event.Records {
-		var queue internal.MergeQueue
-		if err := json.Unmarshal([]byte(record.Body), &queue); err != nil {
-			err = errors.Wrapf(err, "Fail to unmarshal SQS message body: %s", record.Body)
-			internal.HandleError(err)
-			return err
-		}
-
-		args := arguments{
-			Queue: queue,
-		}
-
-		logger.WithField("args", args).Info("Start indexer")
-		if err := mergeParquet(args); err != nil {
-			err = errors.Wrap(err, "Fail to merge parquet files")
-			internal.HandleError(err)
-			return err
-		}
-	}
-
-	return nil
-}
-*/
-
 func handler(args lambda.HandlerArguments) error {
 	records, err := args.DecapSQSEvent()
 	if err != nil {
@@ -87,7 +58,7 @@ func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
 	var err error
 
 	if len(q.SrcObjects) == 1 {
-		mergedFile, err = downloadRecord(q.SrcObjects[0])
+		mergedFile, err = downloadRecord(*q.SrcObjects[0])
 		if err != nil {
 			return err
 		}
@@ -95,7 +66,7 @@ func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
 		go func() {
 			defer close(ch)
 			for _, src := range q.SrcObjects {
-				loadRecord(ch, src, acr)
+				loadRecord(ch, *src, acr)
 			}
 		}()
 

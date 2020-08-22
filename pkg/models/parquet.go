@@ -68,6 +68,24 @@ const (
 	s3DirNameUnmerged = "unmerged"
 )
 
+var schemaDirNameMap = map[string]string{
+	"index":   s3DirNameIndex,
+	"message": s3DirNameMessage,
+}
+
+// BuildMergedS3ObjectKey creates S3 key of merged object from paramters
+func BuildMergedS3ObjectKey(prefix, schema, partition, chunkKey string) string {
+	schemaDirName, ok := schemaDirNameMap[schema]
+	if !ok {
+		log.Fatalf("Invalid schema name: %s", schema)
+	}
+	return prefix + strings.Join([]string{
+		schemaDirName,
+		partition,
+		fmt.Sprintf("merged-%s.parquet", chunkKey),
+	}, "/")
+}
+
 // ParquetLocation indicates S3 path of parquet file. Minerva defines a path rule
 // for parquet files on S3 and ParquetLocation includes logics of the rule.
 //
@@ -90,11 +108,7 @@ func (x ParquetLocation) S3Key() string {
 	var key string
 	switch x.MergeStat {
 	case ParquetMergeStatMerged:
-		key = x.Prefix + strings.Join([]string{
-			x.schemaName(),
-			x.Partition(),
-			string(x.MergeStat),
-		}, "/")
+		log.Fatal("ParquetLocation.S3Key for merged object is no longer used")
 	case ParquetMergeStatUnmerged:
 		key = x.Prefix + strings.Join([]string{
 			"raw",

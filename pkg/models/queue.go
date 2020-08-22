@@ -11,7 +11,7 @@ type ComposeQueue struct {
 // MergeQueue specify src object locations to be merged and destination object location.
 type MergeQueue struct {
 	Schema     ParquetSchemaName `json:"schema"`
-	SrcObjects []S3Object        `json:"src_objects"`
+	SrcObjects []*S3Object       `json:"src_objects"`
 	DstObject  S3Object          `json:"dst_object"`
 }
 

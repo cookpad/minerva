@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 )
 
@@ -10,7 +11,7 @@ type arguments struct {
 	MetaTableName  string
 	AthenaDBName   string
 	OutputLocation string
-	Queue          internal.PartitionQueue
+	Queue          models.PartitionQueue
 }
 
 func makePartition(args arguments) error {
