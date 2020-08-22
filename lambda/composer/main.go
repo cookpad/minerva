@@ -12,10 +12,11 @@ import (
 var logger = lambda.Logger
 
 func main() {
-	lambda.StartHandler(handler)
+	lambda.StartHandler(Handler)
 }
 
-func handler(args lambda.HandlerArguments) error {
+// Handler is exported for testing
+func Handler(args lambda.HandlerArguments) error {
 	records, err := args.DecapSQSEvent()
 	if err != nil {
 		return err

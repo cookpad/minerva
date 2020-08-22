@@ -1,12 +1,10 @@
-package internal
+package repository
 
 import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/guregu/dynamo"
 	"github.com/pkg/errors"
 )
@@ -97,18 +95,4 @@ func (x *MetaDynamoDB) PutPartition(partitionKey string) error {
 	}
 
 	return nil
-}
-
-func isConditionalCheckErr(err error) bool {
-	if aerr, ok := err.(awserr.RequestFailure); ok {
-		return aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException
-	}
-	return false
-}
-
-func isResourceNotFoundErr(err error) bool {
-	if ae, ok := err.(awserr.RequestFailure); ok {
-		return ae.Code() == dynamodb.ErrCodeResourceNotFoundException
-	}
-	return false
 }

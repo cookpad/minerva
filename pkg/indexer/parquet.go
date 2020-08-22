@@ -1,7 +1,7 @@
 package indexer
 
 import (
-	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 )
@@ -48,7 +48,7 @@ func newPqLoc(q *logQueue) (msgDst, idxDst models.ParquetLocation) {
 	return
 }
 
-func dumpParquetFiles(ch chan *logQueue, meta internal.MetaAccessor) ([]dumper, error) {
+func dumpParquetFiles(ch chan *logQueue, meta repository.MetaAccessor) ([]dumper, error) {
 	dumperMap := dumpers{}
 
 	for q := range ch {

@@ -38,9 +38,6 @@ func TestParquetLocationS3Key(t *testing.T) {
 
 	pqLoc.Schema = models.ParquetSchemaMessage
 	assert.Equal(t, "myprefix/raw/messages/dt=1983-04-20-13/srcbucket/srckey.parquet", pqLoc.S3Key())
-
-	pqLoc.MergeStat = models.ParquetMergeStatMerged
-	assert.Equal(t, "myprefix/messages/dt=1983-04-20-13/merged/srcbucket/srckey.parquet", pqLoc.S3Key())
 }
 
 func TestParquetLocationTableName(t *testing.T) {

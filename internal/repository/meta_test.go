@@ -1,11 +1,11 @@
-package internal_test
+package repository_test
 
 import (
 	"os"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ func TestObjectID(t *testing.T) {
 		t.Skip("Both of MINERVA_TEST_REGION and MINERVA_TEST_TABLE are required")
 	}
 
-	meta := internal.NewMetaDynamoDB(region, table)
+	meta := repository.NewMetaDynamoDB(region, table)
 	id1, err := meta.GetObjecID("b1", "k1")
 	require.NoError(t, err)
 	id1a, err := meta.GetObjecID("b1", "k1")
@@ -41,7 +41,7 @@ func TestPartition(t *testing.T) {
 	}
 
 	pkey := uuid.New().String()
-	meta := internal.NewMetaDynamoDB(region, table)
+	meta := repository.NewMetaDynamoDB(region, table)
 	has, err := meta.HeadPartition(pkey)
 	require.NoError(t, err)
 	assert.False(t, has)

@@ -19,6 +19,7 @@ type Handler func(HandlerArguments) error
 func StartHandler(handler Handler) {
 	Logger.SetLevel(logrus.InfoLevel)
 	Logger.SetFormatter(&logrus.JSONFormatter{})
+
 	lambda.Start(func(ctx context.Context, event interface{}) error {
 		defer internal.FlushError()
 

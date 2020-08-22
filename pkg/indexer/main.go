@@ -8,6 +8,9 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/internal/adaptor"
+	"github.com/m-mizutani/minerva/internal/repository"
+	"github.com/m-mizutani/minerva/internal/service"
 	"github.com/m-mizutani/minerva/pkg/lambda"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/m-mizutani/rlogs"
@@ -38,6 +41,8 @@ type arguments struct {
 	lambda.EnvVars
 	Event  events.SQSEvent
 	Reader *rlogs.Reader
+
+	NewS3 adaptor.S3ClientFactory
 }
 
 func handleEvent(args arguments) error {
@@ -86,9 +91,10 @@ const (
 // makeIndex is a process for one S3 object to make index file.
 func makeIndex(args arguments, record events.S3EventRecord) error {
 	srcObject := models.NewS3ObjectFromRecord(record)
+	s3Service := service.NewS3Service(args.NewS3)
 
 	ch := makeLogChannel(srcObject, args.Reader)
-	meta := internal.NewMetaDynamoDB(args.AwsRegion, args.MetaTableName)
+	meta := repository.NewMetaDynamoDB(args.AwsRegion, args.MetaTableName)
 
 	dumpers, err := dumpParquetFiles(ch, meta)
 	logger.WithFields(logrus.Fields{
@@ -103,7 +109,7 @@ func makeIndex(args arguments, record events.S3EventRecord) error {
 			f.dst.Prefix = args.S3Prefix
 			dstObject := models.NewS3Object(args.S3Region, args.S3Bucket, f.dst.S3Key())
 
-			if err := internal.UploadFileToS3(f.filePath, dstObject); err != nil {
+			if err := s3Service.UploadFileToS3(f.filePath, dstObject); err != nil {
 				logger.WithField("dst", dstObject).Error("internal.UploadFileToS3")
 				return errors.Wrapf(err, "Failed UploadFileToS3")
 			}

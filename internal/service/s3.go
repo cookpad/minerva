@@ -1,4 +1,4 @@
-package internal
+package service
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/m-mizutani/minerva/internal/adaptor"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -23,29 +23,27 @@ const (
 	s3DownloadBufferSize = 2 * 1024 * 1024 // 2MB
 )
 
-type s3Client interface {
-	GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error)
-	PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error)
-	ListObjectsV2(input *s3.ListObjectsV2Input) (*s3.ListObjectsV2Output, error)
-	DeleteObjects(input *s3.DeleteObjectsInput) (*s3.DeleteObjectsOutput, error)
+// S3Service is accessor to S3
+type S3Service struct {
+	newS3 adaptor.S3ClientFactory
 }
 
-var newS3Client = newAwsS3Client
-
-func newAwsS3Client(region string) s3Client {
-	ssn := session.New(&aws.Config{Region: aws.String(region)})
-	return s3.New(ssn)
+// NewS3Service is constructor of
+func NewS3Service(newS3 adaptor.S3ClientFactory) *S3Service {
+	return &S3Service{
+		newS3: newS3,
+	}
 }
 
 // UploadFileToS3 upload a specified local file to S3
-func UploadFileToS3(filePath string, dst models.S3Object) error {
+func (x *S3Service) UploadFileToS3(filePath string, dst models.S3Object) error {
 	fd, err := os.Open(filePath)
 	if err != nil {
 		return errors.Wrapf(err, "Fail to open a parquet file: %s", filePath)
 	}
 	defer fd.Close()
 
-	client := newS3Client(dst.Region)
+	client := x.newS3(dst.Region)
 	input := &s3.PutObjectInput{
 		Body:   fd,
 		Bucket: aws.String(dst.Bucket),
@@ -64,7 +62,7 @@ func UploadFileToS3(filePath string, dst models.S3Object) error {
 		}
 	}
 
-	Logger.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"resp":   resp,
 		"bucket": dst.Bucket,
 		"key":    dst.Key,
@@ -74,8 +72,8 @@ func UploadFileToS3(filePath string, dst models.S3Object) error {
 }
 
 // DownloadS3Object downloads a specified remote object from S3
-func DownloadS3Object(obj models.S3Object) (*string, error) {
-	client := newS3Client(obj.Region)
+func (x *S3Service) DownloadS3Object(obj models.S3Object) (*string, error) {
+	client := x.newS3(obj.Region)
 	input := &s3.GetObjectInput{
 		Bucket: &obj.Bucket,
 		Key:    &obj.Key,
@@ -85,7 +83,7 @@ func DownloadS3Object(obj models.S3Object) (*string, error) {
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == s3.ErrCodeNoSuchKey {
-				Logger.WithFields(logrus.Fields{
+				logger.WithFields(logrus.Fields{
 					"bucket": obj.Bucket,
 					"key":    obj.Key,
 				}).Warn("No such key, ignored")
@@ -101,7 +99,7 @@ func DownloadS3Object(obj models.S3Object) (*string, error) {
 
 	defer resp.Body.Close()
 
-	Logger.WithField("resp", resp).Trace("Downloading a parquet file")
+	logger.WithField("resp", resp).Trace("Downloading a parquet file")
 
 	fd, err := ioutil.TempFile("", "*.parquet")
 	if err != nil {
@@ -133,7 +131,7 @@ func DownloadS3Object(obj models.S3Object) (*string, error) {
 
 	fname := fd.Name()
 
-	Logger.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"write": writeBytes, "read": readBytes,
 		"fpath": fname, "srckey": obj.Key,
 	}).Trace("Downloaded S3 object")
@@ -142,36 +140,36 @@ func DownloadS3Object(obj models.S3Object) (*string, error) {
 }
 
 // DeleteS3Objects is warpper of s3.DeleteObjects
-func DeleteS3Objects(locations []*models.S3Object) error {
-	if len(locations) == 0 {
-		Logger.Warn("No target for DeleteObjects")
+func (x *S3Service) DeleteS3Objects(objects []*models.S3Object) error {
+	if len(objects) == 0 {
+		logger.Warn("No target for DeleteObjects")
 		return nil
 	}
 
-	Logger.WithField("len(locations)", len(locations)).Debug("Try to delete objects")
+	logger.WithField("len(objects)", len(objects)).Debug("Try to delete objects")
 
-	var objects []*s3.ObjectIdentifier
+	var objectIDs []*s3.ObjectIdentifier
 
-	for i := range locations {
-		if locations[i].Bucket != locations[0].Bucket {
-			return fmt.Errorf("Multiple buckets are not allowed: %s and %s", locations[i].Bucket, locations[0].Bucket)
+	for i := range objects {
+		if objects[i].Bucket != objects[0].Bucket {
+			return fmt.Errorf("Multiple buckets are not allowed: %s and %s", objects[i].Bucket, objects[0].Bucket)
 		}
 
-		objects = append(objects, &s3.ObjectIdentifier{Key: &locations[i].Key})
+		objectIDs = append(objectIDs, &s3.ObjectIdentifier{Key: &objects[i].Key})
 	}
 
-	client := newS3Client(locations[0].Region)
+	client := x.newS3(objects[0].Region)
 
-	for s := 0; s < len(objects); s += maxNumberOfS3DeletableObject {
-		end := len(objects)
-		if s+maxNumberOfS3DeletableObject < len(objects) {
+	for s := 0; s < len(objectIDs); s += maxNumberOfS3DeletableObject {
+		end := len(objectIDs)
+		if s+maxNumberOfS3DeletableObject < len(objectIDs) {
 			end = s + maxNumberOfS3DeletableObject
 		}
 
 		input := s3.DeleteObjectsInput{
-			Bucket: &locations[0].Bucket,
+			Bucket: &objects[0].Bucket,
 			Delete: &s3.Delete{
-				Objects: objects[s:end],
+				Objects: objectIDs[s:end],
 			},
 		}
 

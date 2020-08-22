@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/m-mizutani/minerva/internal/adaptor"
 	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/internal/service"
 	"github.com/pkg/errors"
@@ -13,6 +14,9 @@ import (
 type HandlerArguments struct {
 	EnvVars
 	Event interface{}
+
+	NewS3     adaptor.S3ClientFactory
+	ChunkRepo repository.ChunkRepository
 }
 
 // EventRecord is decapslated event data (e.g. Body of SQS event)
@@ -60,6 +64,21 @@ func (x *HandlerArguments) BindEvent(ev interface{}) error {
 
 // ChunkService provides ChunkRepository implementation (DynamoDB)
 func (x *HandlerArguments) ChunkService() *service.ChunkService {
-	repo := repository.NewChunkDynamoDB(x.AwsRegion, x.ChunkTableName)
+	var repo repository.ChunkRepository
+
+	if x.ChunkRepo != nil {
+		repo = x.ChunkRepo
+	} else {
+		repo = repository.NewChunkDynamoDB(x.AwsRegion, x.ChunkTableName)
+	}
+
 	return service.NewChunkService(repo, nil)
+}
+
+// S3Service provides service.S3Service with S3 adaptor
+func (x *HandlerArguments) S3Service() *service.S3Service {
+	if x.NewS3 != nil {
+		return service.NewS3Service(x.NewS3)
+	}
+	return service.NewS3Service(adaptor.NewS3Client)
 }

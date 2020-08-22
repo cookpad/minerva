@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/minerva/internal/service"
 	"github.com/m-mizutani/minerva/pkg/lambda"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
@@ -47,6 +48,7 @@ func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
 		models.ParquetSchemaIndex:   &indexAccessor{},
 		models.ParquetSchemaMessage: &messageAccessor{},
 	}
+	s3Service := args.S3Service()
 
 	acr, ok := accessorMap[q.Schema]
 	if !ok {
@@ -58,7 +60,7 @@ func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
 	var err error
 
 	if len(q.SrcObjects) == 1 {
-		mergedFile, err = downloadRecord(*q.SrcObjects[0])
+		mergedFile, err = downloadRecord(s3Service, *q.SrcObjects[0])
 		if err != nil {
 			return err
 		}
@@ -66,7 +68,7 @@ func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
 		go func() {
 			defer close(ch)
 			for _, src := range q.SrcObjects {
-				loadRecord(ch, *src, acr)
+				loadRecord(s3Service, ch, *src, acr)
 			}
 		}()
 
@@ -84,12 +86,12 @@ func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
 		defer os.Remove(*mergedFile)
 
 		dst := models.NewS3Object(q.DstObject.Region, q.DstObject.Bucket, q.DstObject.Key)
-		if err := internal.UploadFileToS3(*mergedFile, dst); err != nil {
+		if err := s3Service.UploadFileToS3(*mergedFile, dst); err != nil {
 			return err
 		}
 	}
 
-	if err := internal.DeleteS3Objects(q.SrcObjects); err != nil {
+	if err := s3Service.DeleteS3Objects(q.SrcObjects); err != nil {
 		return err
 	}
 
@@ -150,16 +152,16 @@ func (x *messageAccessor) dump(pw *writer.ParquetWriter, q *recordQueue) error {
 	return nil
 }
 
-func downloadRecord(src models.S3Object) (*string, error) {
-	fname, err := internal.DownloadS3Object(src)
+func downloadRecord(s3Svc *service.S3Service, src models.S3Object) (*string, error) {
+	fname, err := s3Svc.DownloadS3Object(src)
 	if err != nil {
 		return nil, err
 	}
 	return fname, nil
 }
 
-func loadRecord(ch chan *recordQueue, src models.S3Object, ac accessor) {
-	fname, err := internal.DownloadS3Object(src)
+func loadRecord(s3Svc *service.S3Service, ch chan *recordQueue, src models.S3Object, ac accessor) {
+	fname, err := s3Svc.DownloadS3Object(src)
 	if err != nil {
 		ch <- &recordQueue{Err: err}
 		return
