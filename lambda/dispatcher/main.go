@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/lambda"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
@@ -24,6 +23,7 @@ func handler(args lambda.HandlerArguments) error {
 
 	now := time.Now().UTC()
 	chunkService := args.ChunkService()
+	sqsService := args.SQSService()
 
 	var chunks []*models.Chunk
 	if len(event.Records) > 0 {
@@ -74,7 +74,7 @@ func handler(args lambda.HandlerArguments) error {
 			DstObject:  dst,
 		}
 
-		if err := internal.SendSQS(q, args.AwsRegion, args.MergeQueueURL); err != nil {
+		if err := sqsService.SendSQS(q, args.MergeQueueURL); err != nil {
 			logger.WithField("queue", q).Error("internal.SendSQS")
 			return errors.Wrap(err, "Failed SendSQS")
 		}

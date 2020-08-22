@@ -1,16 +1,13 @@
 package indexer_test
 
 import (
-	"io"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/indexer"
 	"github.com/m-mizutani/minerva/pkg/models"
 
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xitongsys/parquet-go-source/local"
@@ -26,22 +23,6 @@ func newDummyMeta() *dummyMeta {
 func (x *dummyMeta) GetObjecID(s3bucket, s3key string) (int64, error) { return 5, nil }
 func (x *dummyMeta) HeadPartition(partitionKey string) (bool, error)  { return false, nil }
 func (x *dummyMeta) PutPartition(partitionKey string) error           { return nil }
-
-type dummyS3Client struct {
-	origin  io.ReadCloser
-	parquet io.ReadCloser
-	internal.TestS3ClientBase
-}
-
-func (x *dummyS3Client) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
-	switch {
-	case *input.Bucket == "src-bucket" && *input.Key == "k1.json":
-		return &s3.GetObjectOutput{Body: x.origin}, nil
-	case *input.Bucket == "dst-bucket" && *input.Key == "dst-prefix/indices/dt=2019-09-18/tg=aws.cloudtrail/23/src-bucket/k1.json.parquet":
-		return &s3.GetObjectOutput{Body: x.origin}, nil
-	}
-	return nil, nil
-}
 
 func TestCreateParquet(t *testing.T) {
 	type logMessage struct {

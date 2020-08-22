@@ -1,58 +1,5 @@
 package main_test
 
-import (
-	"io"
-	"io/ioutil"
-	"log"
-
-	"github.com/m-mizutani/minerva/internal"
-
-	"github.com/aws/aws-sdk-go/service/s3"
-)
-
-type dummyS3ClientIndex struct {
-	k1, k2   io.ReadCloser
-	dumpFile string
-	internal.TestS3ClientBase
-}
-
-func (x *dummyS3ClientIndex) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
-	fd, err := ioutil.TempFile("", "*.parquet")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer fd.Close()
-
-	buf := make([]byte, 4096)
-	for {
-		n, err := input.Body.Read(buf)
-		if n > 0 {
-			if _, err := fd.Write(buf[:n]); err != nil {
-				log.Fatal(err)
-			}
-		}
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	x.dumpFile = fd.Name()
-	return &s3.PutObjectOutput{}, nil
-}
-
-func (x *dummyS3ClientIndex) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
-	switch *input.Key {
-	case "k1.parquet":
-		return &s3.GetObjectOutput{Body: x.k1}, nil
-	case "k2.parquet":
-		return &s3.GetObjectOutput{Body: x.k2}, nil
-	}
-	return nil, nil
-}
-
 /*
 func dumpIndexParquet(rows []internal.IndexRecord) string {
 	fd, err := ioutil.TempFile("", "*.parquet")

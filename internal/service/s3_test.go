@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/uuid"
-	"github.com/m-mizutani/minerva/internal/adaptor"
+	"github.com/m-mizutani/minerva/internal/mock"
 	"github.com/m-mizutani/minerva/internal/service"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +18,7 @@ import (
 
 func TestS3PutObject(t *testing.T) {
 	bucket := uuid.New().String()
-	svc := service.NewS3Service(adaptor.NewS3Mock)
+	svc := service.NewS3Service(mock.NewS3Client)
 
 	fd, err := ioutil.TempFile("", "*.txt")
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestS3PutObject(t *testing.T) {
 	err = svc.UploadFileToS3(filePath, dst)
 	require.NoError(t, err)
 
-	mock := adaptor.NewS3Mock("dokoka")
+	mock := mock.NewS3Client("dokoka")
 	out, err := mock.GetObject(&s3.GetObjectInput{
 		Bucket: &bucket,
 		Key:    aws.String("sowaka.txt"),
@@ -43,9 +43,9 @@ func TestS3PutObject(t *testing.T) {
 
 func TestDeleteObjects(t *testing.T) {
 	bucket := uuid.New().String()
-	svc := service.NewS3Service(adaptor.NewS3Mock)
+	svc := service.NewS3Service(mock.NewS3Client)
 
-	mock := adaptor.NewS3Mock("dokoka")
+	mock := mock.NewS3Client("dokoka")
 	objects := []*models.S3Object{
 		{Region: "dokoka", Bucket: bucket, Key: "k1"},
 		{Region: "dokoka", Bucket: bucket, Key: "k2"},

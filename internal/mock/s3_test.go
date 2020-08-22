@@ -1,4 +1,4 @@
-package adaptor_test
+package mock_test
 
 import (
 	"io/ioutil"
@@ -8,15 +8,16 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/uuid"
-	"github.com/m-mizutani/minerva/internal/adaptor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/m-mizutani/minerva/internal/mock"
 )
 
 func TestS3Mock(t *testing.T) {
 	t.Run("Can get object saved by PutObject", func(tt *testing.T) {
 		bucket := uuid.New().String()
-		client := adaptor.NewS3Mock("test")
+		client := mock.NewS3Client("test")
 		_, err := client.PutObject(&s3.PutObjectInput{
 			Bucket: &bucket,
 			Key:    aws.String("k1/obj"),
@@ -36,7 +37,7 @@ func TestS3Mock(t *testing.T) {
 
 	t.Run("Can not get object unsaved by PutObject", func(tt *testing.T) {
 		bucket := uuid.New().String()
-		client := adaptor.NewS3Mock("test")
+		client := mock.NewS3Client("test")
 
 		_, err := client.GetObject(&s3.GetObjectInput{
 			Bucket: &bucket,
@@ -47,7 +48,7 @@ func TestS3Mock(t *testing.T) {
 
 	t.Run("Can not get deleted object", func(tt *testing.T) {
 		bucket := uuid.New().String()
-		client := adaptor.NewS3Mock("test")
+		client := mock.NewS3Client("test")
 		_, err := client.PutObject(&s3.PutObjectInput{
 			Bucket: &bucket,
 			Key:    aws.String("k1/obj"),

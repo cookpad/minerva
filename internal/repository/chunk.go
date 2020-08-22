@@ -55,6 +55,7 @@ func (x *ChunkDynamoDB) chunkPK(schema string) string {
 	return fmt.Sprintf("%s%s", x.KeyPrefix, schema)
 }
 
+// GetMergableChunks returns mergable chunks exceeding freezedAt or minChunkSize
 func (x *ChunkDynamoDB) GetMergableChunks(schema string, ts time.Time, minChunkSize int64) ([]*models.Chunk, error) {
 	var chunks []*models.Chunk
 	query := x.table.
@@ -68,6 +69,7 @@ func (x *ChunkDynamoDB) GetMergableChunks(schema string, ts time.Time, minChunkS
 	return chunks, nil
 }
 
+// GetWritableChunks returns writable chunks for now (because chunks are not locked)
 func (x *ChunkDynamoDB) GetWritableChunks(schema, partition string, ts time.Time, writableTotalSize int64) ([]*models.Chunk, error) {
 	var chunks []*models.Chunk
 	query := x.table.

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/m-mizutani/minerva/internal/mock"
 	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/internal/service"
 	"github.com/m-mizutani/minerva/pkg/models"
@@ -35,7 +36,7 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		// One chunk should be returned after put
 		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
 		require.NoError(tt, err)
-		assert.Equal(tt, 1, len(chunks))
+		require.Equal(tt, 1, len(chunks))
 		require.Equal(tt, 1, len(chunks[0].S3Objects))
 		obj1d, err := models.DecodeS3Object(chunks[0].S3Objects[0])
 		assert.Equal(tt, "test-bucket", obj1d.Bucket)
@@ -340,6 +341,23 @@ func TestChunkDynamoDB(t *testing.T) {
 
 		// For independent testing
 		repo.KeyPrefix = fmt.Sprintf("chunk/%s/", uuid.New().String())
+
+		// To simplify test
+		svc := service.NewChunkService(repo, &service.ChunkServiceArguments{
+			FreezedAfter: testChunkFreezedAfter,
+			ChunkMaxSize: testChunkSizeMax,
+			ChunkMinSize: testChunkSizeMin,
+		})
+
+		return svc
+	}
+
+	testChunkService(t, newService)
+}
+
+func TestChunkMockDB(t *testing.T) {
+	newService := func() *service.ChunkService {
+		repo := mock.NewChunkMockDB()
 
 		// To simplify test
 		svc := service.NewChunkService(repo, &service.ChunkServiceArguments{

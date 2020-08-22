@@ -16,6 +16,7 @@ type HandlerArguments struct {
 	Event interface{}
 
 	NewS3     adaptor.S3ClientFactory
+	NewSQS    adaptor.SQSClientFactory
 	ChunkRepo repository.ChunkRepository
 }
 
@@ -81,4 +82,12 @@ func (x *HandlerArguments) S3Service() *service.S3Service {
 		return service.NewS3Service(x.NewS3)
 	}
 	return service.NewS3Service(adaptor.NewS3Client)
+}
+
+// SQSService provides service.SQSService with SQS adaptor
+func (x *HandlerArguments) SQSService() *service.SQSService {
+	if x.NewSQS != nil {
+		return service.NewSQSService(x.NewSQS)
+	}
+	return service.NewSQSService(adaptor.NewSQSClient)
 }

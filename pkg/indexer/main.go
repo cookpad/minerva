@@ -28,6 +28,8 @@ func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Rea
 	args := arguments{
 		Event:  sqsEvent,
 		Reader: reader,
+		NewS3:  adaptor.NewS3Client,
+		NewSQS: adaptor.NewSQSClient,
 	}
 	if err := handleEvent(args); err != nil {
 		internal.HandleError(err)
@@ -42,7 +44,8 @@ type arguments struct {
 	Event  events.SQSEvent
 	Reader *rlogs.Reader
 
-	NewS3 adaptor.S3ClientFactory
+	NewS3  adaptor.S3ClientFactory
+	NewSQS adaptor.SQSClientFactory
 }
 
 func handleEvent(args arguments) error {
@@ -92,6 +95,7 @@ const (
 func makeIndex(args arguments, record events.S3EventRecord) error {
 	srcObject := models.NewS3ObjectFromRecord(record)
 	s3Service := service.NewS3Service(args.NewS3)
+	sqsService := service.NewSQSService(args.NewSQS)
 
 	ch := makeLogChannel(srcObject, args.Reader)
 	meta := repository.NewMetaDynamoDB(args.AwsRegion, args.MetaTableName)
@@ -124,7 +128,7 @@ func makeIndex(args arguments, record events.S3EventRecord) error {
 				Keys:      f.dst.PartitionKeys(),
 			}
 			logger.WithField("q", partQueue).Info("Partition queue")
-			if err := internal.SendSQS(&partQueue, args.AwsRegion, args.PartitionQueueURL); err != nil {
+			if err := sqsService.SendSQS(&partQueue, args.PartitionQueueURL); err != nil {
 				return errors.Wrap(err, "Fail to send parition queue")
 			}
 
@@ -135,7 +139,7 @@ func makeIndex(args arguments, record events.S3EventRecord) error {
 				Partition: f.dst.Partition(),
 			}
 			logger.WithField("q", composeQueue).Info("Compose queue")
-			if err := internal.SendSQS(&composeQueue, args.AwsRegion, args.ComposeQueueURL); err != nil {
+			if err := sqsService.SendSQS(&composeQueue, args.ComposeQueueURL); err != nil {
 				return errors.Wrap(err, "Fail to send parition queue")
 			}
 
