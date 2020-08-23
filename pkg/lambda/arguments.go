@@ -15,9 +15,9 @@ type HandlerArguments struct {
 	EnvVars
 	Event interface{}
 
-	NewS3     adaptor.S3ClientFactory
-	NewSQS    adaptor.SQSClientFactory
-	ChunkRepo repository.ChunkRepository
+	NewS3     adaptor.S3ClientFactory    `json:"-"`
+	NewSQS    adaptor.SQSClientFactory   `json:"-"`
+	ChunkRepo repository.ChunkRepository `json:"-"`
 }
 
 // EventRecord is decapslated event data (e.g. Body of SQS event)

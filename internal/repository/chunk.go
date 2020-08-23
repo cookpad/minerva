@@ -129,7 +129,8 @@ func (x *ChunkDynamoDB) FreezeChunk(chunk *models.Chunk) (*models.Chunk, error) 
 	query := x.table.
 		Update("pk", chunk.PK).
 		Range("sk", chunk.SK).
-		Set("freezed", true)
+		Set("freezed", true).
+		If("attribute_exists(pk) AND attribute_exists(sk)")
 
 	var newChunk models.Chunk
 	if err := query.OldValue(&newChunk); err != nil {
