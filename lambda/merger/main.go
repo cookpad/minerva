@@ -34,7 +34,7 @@ func handler(args lambda.HandlerArguments) error {
 			return err
 		}
 
-		if err := mergeChunk(args, &q); err != nil {
+		if err := MergeChunk(args, &q); err != nil {
 			return errors.Wrap(err, "Failed composeChunka")
 		}
 	}
@@ -42,7 +42,8 @@ func handler(args lambda.HandlerArguments) error {
 	return nil
 }
 
-func mergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
+// MergeChunk merges S3 objects to one parquet file
+func MergeChunk(args lambda.HandlerArguments, q *models.MergeQueue) error {
 	ch := make(chan *recordQueue)
 	accessorMap := map[models.ParquetSchemaName]accessor{
 		models.ParquetSchemaIndex:   &indexAccessor{},

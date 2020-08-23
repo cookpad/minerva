@@ -25,7 +25,7 @@ var logger = lambda.Logger
 func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Reader) error {
 	defer internal.FlushError()
 
-	args := arguments{
+	args := Arguments{
 		Event:  sqsEvent,
 		Reader: reader,
 		NewS3:  adaptor.NewS3Client,
@@ -39,7 +39,7 @@ func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Rea
 	return nil
 }
 
-type arguments struct {
+type Arguments struct {
 	lambda.EnvVars
 	Event  events.SQSEvent
 	Reader *rlogs.Reader
@@ -48,7 +48,7 @@ type arguments struct {
 	NewSQS adaptor.SQSClientFactory
 }
 
-func handleEvent(args arguments) error {
+func handleEvent(args Arguments) error {
 	if err := args.BindEnvVars(); err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func handleEvent(args arguments) error {
 			}
 
 			logger.WithField("args", args).Info("Start indexer")
-			if err := makeIndex(args, s3record); err != nil {
+			if err := MakeIndex(args, s3record); err != nil {
 				return errors.Wrap(err, "Fail to create inverted index")
 			}
 		}
@@ -91,8 +91,8 @@ const (
 	indexQueueSize = 128
 )
 
-// makeIndex is a process for one S3 object to make index file.
-func makeIndex(args arguments, record events.S3EventRecord) error {
+// MakeIndex is a process for one S3 object to make index file.
+func MakeIndex(args Arguments, record events.S3EventRecord) error {
 	srcObject := models.NewS3ObjectFromRecord(record)
 	s3Service := service.NewS3Service(args.NewS3)
 	sqsService := service.NewSQSService(args.NewSQS)
