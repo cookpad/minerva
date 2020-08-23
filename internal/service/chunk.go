@@ -10,8 +10,8 @@ import (
 const (
 	DefaultChunkKeyPrefix    = "chunk/"
 	DefaultChunkFreezedAfter = time.Minute * 5
-	DefaultChunkChunkMaxSize = 128 * 1000 * 1000
-	DefaultChunkChunkMinSize = 100 * 1000 * 1000
+	DefaultChunkChunkMaxSize = 256 * 1000 * 1000
+	DefaultChunkChunkMinSize = 200 * 1000 * 1000
 )
 
 type ChunkService struct {

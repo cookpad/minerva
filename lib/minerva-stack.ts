@@ -184,7 +184,7 @@ export class MinervaStack extends cdk.Stack {
       code: buildPath,
       role: lambdaRole,
       timeout: cdk.Duration.seconds(450),
-      memorySize: 2048,
+      memorySize: 3008,
       reservedConcurrentExecutions: props.concurrentExecution,
       events: [new SqsEventSource(this.mergeQueue, { batchSize: 1 })],
       environment: defaultEnvVars,
