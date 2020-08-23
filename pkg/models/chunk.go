@@ -35,13 +35,42 @@ func (x *Chunk) ToS3ObjectSlice() ([]*S3Object, error) {
 
 // NewChunkFromDynamoEvent builds Chunk by DynamoDBAttributeValue
 func NewChunkFromDynamoEvent(image map[string]events.DynamoDBAttributeValue) (*Chunk, error) {
-	chunk := &Chunk{
-		Schema:    image["schema"].String(),
-		S3Objects: image["s3_objects"].StringSet(),
-		Partition: image["partition"].String(),
-		ChunkKey:  image["chunk_key"].String(),
-		PK:        image["pk"].String(),
-		SK:        image["sk"].String(),
+	chunk := &Chunk{}
+
+	if v, ok := image["schema"]; ok {
+		chunk.Schema = v.String()
+	} else {
+		return nil, errors.New("Failed to get schema from DynamoRecord")
+	}
+
+	if v, ok := image["s3_objects"]; ok {
+		chunk.S3Objects = v.StringSet()
+	} else {
+		return nil, errors.New("Failed to get s3_objects from DynamoRecord")
+	}
+
+	if v, ok := image["partition"]; ok {
+		chunk.Partition = v.String()
+	} else {
+		return nil, errors.New("Failed to get partition from DynamoRecord")
+	}
+
+	if v, ok := image["chunk_key"]; ok {
+		chunk.ChunkKey = v.String()
+	} else {
+		return nil, errors.New("Failed to get chunk_key from DynamoRecord")
+	}
+
+	if v, ok := image["pk"]; ok {
+		chunk.PK = v.String()
+	} else {
+		return nil, errors.New("Failed to get pk from DynamoRecord")
+	}
+
+	if v, ok := image["sk"]; ok {
+		chunk.SK = v.String()
+	} else {
+		return nil, errors.New("Failed to get sk from DynamoRecord")
 	}
 
 	if v, ok := image["total_size"]; ok {
