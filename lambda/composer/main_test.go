@@ -50,7 +50,7 @@ func TestComposer(t *testing.T) {
 			Bucket: "test1",
 			Key:    "k1",
 			Region: "ap-northeast-1",
-		}, 120, "index", "dt=1983-04-20", now, now.Add(time.Minute*5))
+		}, 120, "index", "dt=1983-04-20", now)
 
 		event := testutil.EncapBySQS(models.ComposeQueue{
 			S3Object: models.S3Object{

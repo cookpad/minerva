@@ -48,22 +48,26 @@ func NewChunkService(repo repository.ChunkRepository, args *ChunkServiceArgument
 	return service
 }
 
-func (x *ChunkService) GetWritableChunks(schema, partition string, ts time.Time, objSize int64) ([]*models.Chunk, error) {
+func (x *ChunkService) GetWritableChunks(schema, partition string, objSize int64) ([]*models.Chunk, error) {
 	writableTotalSize := minInt64(x.args.ChunkMinSize, x.args.ChunkMaxSize-objSize)
-	return x.repo.GetWritableChunks(schema, partition, ts, writableTotalSize)
+	return x.repo.GetWritableChunks(schema, partition, writableTotalSize)
 }
 
-func (x *ChunkService) GetMergableChunks(schema string, ts time.Time) ([]*models.Chunk, error) {
-	return x.repo.GetMergableChunks(schema, ts, x.args.ChunkMinSize)
+func (x *ChunkService) GetMergableChunks(schema string, now time.Time) ([]*models.Chunk, error) {
+	return x.repo.GetMergableChunks(schema, now.Add(-x.args.FreezedAfter), x.args.ChunkMinSize)
 }
 
-func (x *ChunkService) PutChunk(obj models.S3Object, size int64, schema, partition string, ts time.Time) error {
-	return x.repo.PutChunk(obj, size, schema, partition, ts, ts.Add(x.args.FreezedAfter))
+func (x *ChunkService) PutChunk(obj models.S3Object, size int64, schema, partition string, now time.Time) error {
+	return x.repo.PutChunk(obj, size, schema, partition, now)
 }
 
-func (x *ChunkService) UpdateChunk(chunk *models.Chunk, obj models.S3Object, objSize int64, ts time.Time) error {
+func (x *ChunkService) UpdateChunk(chunk *models.Chunk, obj models.S3Object, objSize int64) error {
 	writableTotalSize := minInt64(x.args.ChunkMinSize, x.args.ChunkMaxSize-objSize)
-	return x.repo.UpdateChunk(chunk, obj, objSize, writableTotalSize, ts)
+	return x.repo.UpdateChunk(chunk, obj, objSize, writableTotalSize)
+}
+
+func (x *ChunkService) FreezeChunk(chunk *models.Chunk) (*models.Chunk, error) {
+	return x.repo.FreezeChunk(chunk)
 }
 
 func (x *ChunkService) DeleteChunk(chunk *models.Chunk) (*models.Chunk, error) {
@@ -71,7 +75,7 @@ func (x *ChunkService) DeleteChunk(chunk *models.Chunk) (*models.Chunk, error) {
 }
 
 func (x *ChunkService) IsMergableChunk(chunk *models.Chunk, ts time.Time) bool {
-	return x.args.ChunkMinSize <= chunk.TotalSize && chunk.FreezedAt <= ts.UTC().Unix()
+	return x.args.ChunkMinSize <= chunk.TotalSize && chunk.CreatedAt <= ts.UTC().Add(x.args.FreezedAfter).Unix()
 }
 
 func minInt64(a, b int64) int64 {

@@ -61,7 +61,15 @@ func Handler(args lambda.HandlerArguments) error {
 
 	logger.WithField("chunks", chunks).Info("waiwai")
 
-	for _, chunk := range chunks {
+	for _, old := range chunks {
+		chunk, err := chunkService.FreezeChunk(old)
+		if chunk == nil {
+			continue // The chunk is no longer avaiable
+		}
+		if err != nil {
+			return errors.Wrap(err, "chunkService.FreezeChunk")
+		}
+
 		src, err := chunk.ToS3ObjectSlice()
 		if err != nil {
 			return errors.Wrap(err, "Failed ToS3ObjectSlice")

@@ -27,14 +27,14 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		obj1 := models.S3Object{Region: "us-east-1", Bucket: "test-bucket", Key: "blue/k1"}
 
 		// No chunks are returned before putting chunk
-		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 60)
+		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 60)
 		require.NoError(tt, err)
 		assert.Equal(tt, 0, len(chunks))
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
 
 		// One chunk should be returned after put
-		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 		require.Equal(tt, 1, len(chunks))
 		require.Equal(tt, 1, len(chunks[0].S3Objects))
@@ -54,12 +54,12 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		require.NoError(tt, repo.PutChunk(obj1, 40, defaultSchema, defaultPartition, ts))
 
 		writeSize := int64(33)
-		writeTS := ts.Add(time.Minute)
-		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, writeTS, writeSize)
+		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, writeSize)
 		require.NoError(tt, err)
-		require.NoError(tt, repo.UpdateChunk(chunks[0], obj2, 30, ts.Add(time.Minute)))
+		require.Equal(tt, 1, len(chunks))
+		require.NoError(tt, repo.UpdateChunk(chunks[0], obj2, 30))
 
-		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 		require.Equal(tt, 1, len(chunks))
 		require.Equal(tt, 2, len(chunks[0].S3Objects))
@@ -74,11 +74,11 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
 
-		chunks1, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks1, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 
 		require.NoError(tt, repo.PutChunk(obj2, 50, defaultSchema, defaultPartition, ts))
-		chunks2, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks2, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 2, len(chunks2))
 
@@ -96,15 +96,16 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		obj1 := models.S3Object{Region: "us-east-1", Bucket: "test-bucket", Key: "blue/k1"}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
-		chunks1, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks1, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 
+		require.Equal(tt, 1, len(chunks1))
 		old, err := repo.DeleteChunk(chunks1[0])
 		require.NoError(tt, err)
 		assert.Equal(tt, chunks1[0].PK, old.PK)
 		assert.Equal(tt, chunks1[0].SK, old.SK)
 
-		chunks2, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks2, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 0, len(chunks2))
 	})
@@ -116,12 +117,11 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		obj2 := models.S3Object{Region: "us-east-3", Bucket: "test-bucket", Key: "blue/k3"}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
-		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 
-		assert.Equal(tt, repository.ErrChunkNotWritable,
-			repo.UpdateChunk(chunks[0], obj2, 40, ts.Add(time.Minute)))
-		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		assert.Equal(tt, repository.ErrChunkNotWritable, repo.UpdateChunk(chunks[0], obj2, 40))
+		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(chunks))
 		assert.Equal(tt, 1, len(chunks[0].S3Objects))
@@ -138,17 +138,16 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 
 		// Not exceeded
 		require.NoError(tt, repo.PutChunk(obj1, 79, defaultSchema, defaultPartition, ts))
-		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 		require.Equal(t, 1, len(chunks))
 		// Exceeded
-		require.NoError(tt, repo.UpdateChunk(chunks[0], obj2, 1, ts.Add(time.Minute)))
+		require.NoError(tt, repo.UpdateChunk(chunks[0], obj2, 1))
 
 		// Updating exceeded chunk
-		require.Equal(tt, repository.ErrChunkNotWritable,
-			repo.UpdateChunk(chunks[0], obj3, 1, ts.Add(time.Minute)))
+		require.Equal(tt, repository.ErrChunkNotWritable, repo.UpdateChunk(chunks[0], obj3, 1))
 
-		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 		require.Equal(tt, 0, len(chunks))
 
@@ -161,26 +160,6 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		assert.Equal(tt, int64(80), mergable[0].TotalSize)
 	})
 
-	t.Run("Fail to update chunk after freezed_at", func(tt *testing.T) {
-		repo := newService()
-
-		obj1 := models.S3Object{Region: "us-east-1", Bucket: "test-bucket", Key: "blue/k1"}
-		obj2 := models.S3Object{Region: "us-east-3", Bucket: "test-bucket", Key: "blue/k3"}
-
-		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
-		chunks, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
-		require.NoError(tt, err)
-
-		assert.Equal(tt, repository.ErrChunkNotWritable,
-			repo.UpdateChunk(chunks[0], obj2, 5, ts.Add(time.Minute*6)))
-		chunks, err = repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
-		require.NoError(tt, err)
-		assert.Equal(tt, 1, len(chunks))
-		assert.Equal(tt, 1, len(chunks[0].S3Objects))
-		obj1d, err := models.DecodeS3Object(chunks[0].S3Objects[0])
-		assert.Equal(tt, "blue/k1", obj1d.Key)
-	})
-
 	t.Run("Fail to update removed chunk", func(tt *testing.T) {
 		repo := newService()
 
@@ -188,15 +167,15 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		obj2 := models.S3Object{Region: "us-east-3", Bucket: "test-bucket", Key: "blue/k3"}
 
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
-		chunks1, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+		chunks1, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 
 		_, err = repo.DeleteChunk(chunks1[0])
 		require.NoError(tt, err)
 
 		assert.Equal(tt, repository.ErrChunkNotWritable,
-			repo.UpdateChunk(chunks1[0], obj2, 30, ts.Add(time.Minute)))
-		chunks2, err := repo.GetWritableChunks(defaultSchema, defaultPartition, ts, 0)
+			repo.UpdateChunk(chunks1[0], obj2, 30))
+		chunks2, err := repo.GetWritableChunks(defaultSchema, defaultPartition, 0)
 		require.NoError(tt, err)
 		assert.Equal(tt, 0, len(chunks2))
 	})
@@ -210,7 +189,7 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
 		require.NoError(tt, repo.PutChunk(obj2, 40, defaultSchema, defaultPartition, ts))
 
-		chunks1, err := repo.GetMergableChunks(defaultSchema, ts.Add(time.Minute))
+		chunks1, err := repo.GetMergableChunks(defaultSchema, ts.Add(testChunkFreezedAfter-time.Second))
 		require.NoError(tt, err)
 		assert.Equal(tt, 0, len(chunks1))
 	})
@@ -242,7 +221,7 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
 		require.NoError(tt, repo.PutChunk(obj2, 70, defaultSchema, defaultPartition, ts.Add(time.Minute)))
 
-		chunks1, err := repo.GetMergableChunks(defaultSchema, ts.Add(time.Minute*5))
+		chunks1, err := repo.GetMergableChunks(defaultSchema, ts.Add(testChunkFreezedAfter))
 		require.NoError(tt, err)
 		require.Equal(tt, 1, len(chunks1))
 		assert.Equal(tt, int64(60), chunks1[0].TotalSize) // obj3
@@ -261,7 +240,7 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, p1, ts))
 		require.NoError(tt, repo.PutChunk(obj2, 70, defaultSchema, p2, ts))
 
-		chunks1, err := repo.GetWritableChunks(defaultSchema, p1, ts, 0)
+		chunks1, err := repo.GetWritableChunks(defaultSchema, p1, 0)
 		require.NoError(tt, err)
 		require.Equal(tt, 1, len(chunks1))
 		assert.Equal(tt, p1, chunks1[0].Partition)
@@ -279,11 +258,11 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, p1, ts))
 		require.NoError(tt, repo.PutChunk(obj2, 70, defaultSchema, p2, ts))
 
-		chunks1, err := repo.GetWritableChunks(defaultSchema, p2, ts, 0)
+		chunks1, err := repo.GetWritableChunks(defaultSchema, p2, 0)
 		require.NoError(tt, err)
-		require.NoError(tt, repo.UpdateChunk(chunks1[0], obj3, 29, ts))
+		require.NoError(tt, repo.UpdateChunk(chunks1[0], obj3, 29))
 
-		chunks2, err := repo.GetWritableChunks(defaultSchema, p2, ts, 0)
+		chunks2, err := repo.GetWritableChunks(defaultSchema, p2, 0)
 		require.NoError(tt, err)
 		require.Equal(tt, 0, len(chunks2))
 
@@ -319,6 +298,34 @@ func testChunkService(t *testing.T, newService func() *service.ChunkService) {
 		assert.Contains(tt, sizeList, int64(60))
 		assert.Contains(tt, sizeList, int64(70))
 		assert.NotContains(tt, sizeList, int64(80))
+	})
+
+	t.Run("Can not update freezed chunk", func(tt *testing.T) {
+		repo := newService()
+
+		obj1 := models.S3Object{Region: "us-east-1", Bucket: "test-bucket", Key: "blue/k1"}
+		obj2 := models.S3Object{Region: "us-east-2", Bucket: "test-bucket", Key: "blue/k2"}
+		obj3 := models.S3Object{Region: "us-east-3", Bucket: "test-bucket", Key: "blue/k3"}
+
+		require.NoError(tt, repo.PutChunk(obj1, 60, defaultSchema, defaultPartition, ts))
+
+		chunks1, err := repo.GetMergableChunks(defaultSchema, ts.Add(time.Hour))
+		require.NoError(tt, err)
+		require.Equal(tt, 1, len(chunks1))
+
+		// Can update after GetMergableChunks (but not freezed)
+		require.NoError(tt, repo.UpdateChunk(chunks1[0], obj2, 10))
+
+		// And freeze the chunk
+		newChunk, err := repo.FreezeChunk(chunks1[0])
+
+		// Can not update after freezed
+		require.Equal(tt, repository.ErrChunkNotWritable, repo.UpdateChunk(chunks1[0], obj3, 1))
+
+		objSet := batchDecodeS3Object(newChunk.S3Objects)
+		assert.Contains(tt, objSet, obj1)
+		assert.Contains(tt, objSet, obj2)
+		assert.NotContains(tt, objSet, obj3)
 	})
 }
 

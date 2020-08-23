@@ -11,8 +11,8 @@ type Chunk struct {
 	TotalSize int64    `dynamo:"total_size"`
 	Partition string   `dynamo:"partition"`
 	CreatedAt int64    `dynamo:"created_at"`
-	FreezedAt int64    `dynamo:"freezed_at"`
 	ChunkKey  string   `dynamo:"chunk_key"`
+	Freezed   bool     `dynamo:"freezed"`
 
 	// For DynamoDB
 	PK string `dynamo:"pk"`
@@ -64,14 +64,10 @@ func NewChunkFromDynamoEvent(image map[string]events.DynamoDBAttributeValue) (*C
 		return nil, errors.New("Failed to get created_at from DynamoRecord")
 	}
 
-	if v, ok := image["freezed_at"]; ok {
-		freezedAt, err := v.Integer()
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to read freezed_at")
-		}
-		chunk.FreezedAt = freezedAt
+	if v, ok := image["freezed"]; ok {
+		chunk.Freezed = v.Boolean()
 	} else {
-		return nil, errors.New("Failed to get freezed_at from DynamoRecord")
+		return nil, errors.New("Failed to get freezed from DynamoRecord")
 	}
 
 	return chunk, nil

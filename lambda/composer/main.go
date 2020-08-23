@@ -42,13 +42,13 @@ func composeChunk(args lambda.HandlerArguments, q *models.ComposeQueue) error {
 	chunkService := args.ChunkService()
 	now := time.Now().UTC()
 
-	chunks, err := chunkService.GetWritableChunks(q.Schema, q.Partition, now, q.Size)
+	chunks, err := chunkService.GetWritableChunks(q.Schema, q.Partition, q.Size)
 	if err != nil {
 		return errors.Wrap(err, "Failed GetChunks")
 	}
 
 	for _, chunk := range chunks {
-		err := chunkService.UpdateChunk(chunk, q.S3Object, q.Size, now)
+		err := chunkService.UpdateChunk(chunk, q.S3Object, q.Size)
 		if err != nil {
 			if err == repository.ErrChunkNotWritable {
 				continue
