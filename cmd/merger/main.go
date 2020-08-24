@@ -25,7 +25,6 @@ func main() {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "merge-queue-url",
-				Aliases:     []string{"l"},
 				EnvVars:     []string{"MERGE_QUEUE_URL"},
 				Destination: &args.LogLevel,
 				Required:    true,
@@ -91,7 +90,7 @@ func mergeHandler(args handler.Arguments) error {
 		}
 		timer.clear()
 
-		if err := merger.MergeChunk(args, q); err != nil {
+		if err := merger.MergeChunk(args, &q); err != nil {
 			return err
 		}
 
