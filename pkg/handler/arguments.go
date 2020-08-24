@@ -1,4 +1,4 @@
-package lambda
+package handler
 
 import (
 	"encoding/json"
@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// HandlerArguments has environment variables, Event record and adaptor
-type HandlerArguments struct {
+// Arguments has environment variables, Event record and adaptor
+type Arguments struct {
 	EnvVars
 	Event interface{}
 
@@ -33,7 +33,7 @@ func (x EventRecord) Bind(ev interface{}) error {
 }
 
 // DecapSQSEvent decapslates wrapped body data in SQSEvent
-func (x *HandlerArguments) DecapSQSEvent() ([]EventRecord, error) {
+func (x *Arguments) DecapSQSEvent() ([]EventRecord, error) {
 	var sqsEvent events.SQSEvent
 	if err := x.BindEvent(&sqsEvent); err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (x *HandlerArguments) DecapSQSEvent() ([]EventRecord, error) {
 }
 
 // BindEvent directly decode event data and unmarshal to ev object.
-func (x *HandlerArguments) BindEvent(ev interface{}) error {
+func (x *Arguments) BindEvent(ev interface{}) error {
 	raw, err := json.Marshal(x.Event)
 	if err != nil {
 		Logger.WithField("event", x.Event).Error("json.Marshal")
@@ -64,7 +64,7 @@ func (x *HandlerArguments) BindEvent(ev interface{}) error {
 }
 
 // ChunkService provides ChunkRepository implementation (DynamoDB)
-func (x *HandlerArguments) ChunkService() *service.ChunkService {
+func (x *Arguments) ChunkService() *service.ChunkService {
 	var repo repository.ChunkRepository
 
 	if x.ChunkRepo != nil {
@@ -77,7 +77,7 @@ func (x *HandlerArguments) ChunkService() *service.ChunkService {
 }
 
 // S3Service provides service.S3Service with S3 adaptor
-func (x *HandlerArguments) S3Service() *service.S3Service {
+func (x *Arguments) S3Service() *service.S3Service {
 	if x.NewS3 != nil {
 		return service.NewS3Service(x.NewS3)
 	}
@@ -85,7 +85,7 @@ func (x *HandlerArguments) S3Service() *service.S3Service {
 }
 
 // SQSService provides service.SQSService with SQS adaptor
-func (x *HandlerArguments) SQSService() *service.SQSService {
+func (x *Arguments) SQSService() *service.SQSService {
 	if x.NewSQS != nil {
 		return service.NewSQSService(x.NewSQS)
 	}

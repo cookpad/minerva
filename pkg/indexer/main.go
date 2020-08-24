@@ -11,14 +11,14 @@ import (
 	"github.com/m-mizutani/minerva/internal/adaptor"
 	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/internal/service"
-	"github.com/m-mizutani/minerva/pkg/lambda"
+	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
-var logger = lambda.Logger
+var logger = handler.Logger
 
 // RunIndexer is main handler of indexer. It requires log reader based on rlogs.
 // Main procedures are in handleEvent() to reduce number of internal.HandleError().
@@ -40,7 +40,7 @@ func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Rea
 }
 
 type Arguments struct {
-	lambda.EnvVars
+	handler.EnvVars
 	Event  events.SQSEvent
 	Reader *rlogs.Reader
 
@@ -110,6 +110,7 @@ func MakeIndex(args Arguments, record events.S3EventRecord) error {
 
 	for _, dumper := range dumpers {
 		for _, f := range dumper.Files() {
+			f.dst.Bucket = args.S3Bucket
 			f.dst.Prefix = args.S3Prefix
 			dstObject := models.NewS3Object(args.S3Region, args.S3Bucket, f.dst.S3Key())
 

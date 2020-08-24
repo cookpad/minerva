@@ -4,19 +4,19 @@ import (
 	"time"
 
 	"github.com/m-mizutani/minerva/internal/repository"
-	"github.com/m-mizutani/minerva/pkg/lambda"
+	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 )
 
-var logger = lambda.Logger
+var logger = handler.Logger
 
 func main() {
-	lambda.StartHandler(Handler)
+	handler.StartLambda(Handler)
 }
 
 // Handler is exported for testing
-func Handler(args lambda.HandlerArguments) error {
+func Handler(args handler.Arguments) error {
 	records, err := args.DecapSQSEvent()
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func Handler(args lambda.HandlerArguments) error {
 	return nil
 }
 
-func composeChunk(args lambda.HandlerArguments, q *models.ComposeQueue) error {
+func composeChunk(args handler.Arguments, q *models.ComposeQueue) error {
 	chunkService := args.ChunkService()
 	now := time.Now().UTC()
 

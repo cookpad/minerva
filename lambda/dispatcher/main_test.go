@@ -12,7 +12,7 @@ import (
 	"github.com/m-mizutani/minerva/internal/mock"
 	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/internal/service"
-	"github.com/m-mizutani/minerva/pkg/lambda"
+	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,8 +28,8 @@ func TestDispatcher(t *testing.T) {
 		event := createBaseEvent(repo, service.DefaultChunkChunkMinSize, now)
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
-		args := lambda.HandlerArguments{
-			EnvVars: lambda.EnvVars{
+		args := handler.Arguments{
+			EnvVars: handler.EnvVars{
 				MergeQueueURL: "https://sqs.eu-west-2.amazonaws.com/test-url",
 			},
 			Event:     event,
@@ -68,8 +68,8 @@ func TestDispatcher(t *testing.T) {
 		event.Records[0].EventName = "MODIFY"
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
-		args := lambda.HandlerArguments{
-			EnvVars: lambda.EnvVars{
+		args := handler.Arguments{
+			EnvVars: handler.EnvVars{
 				MergeQueueURL: "https://sqs.eu-west-2.amazonaws.com/test-url",
 			},
 			Event:     event,
@@ -103,8 +103,8 @@ func TestDispatcher(t *testing.T) {
 		event.Records[0].EventName = "REMOVE"
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
-		args := lambda.HandlerArguments{
-			EnvVars: lambda.EnvVars{
+		args := handler.Arguments{
+			EnvVars: handler.EnvVars{
 				MergeQueueURL: "https://sqs.eu-west-2.amazonaws.com/test-url",
 			},
 			Event:     event,
@@ -121,8 +121,8 @@ func TestDispatcher(t *testing.T) {
 		event := createBaseEvent(repo, service.DefaultChunkChunkMinSize-1, now)
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
-		args := lambda.HandlerArguments{
-			EnvVars: lambda.EnvVars{
+		args := handler.Arguments{
+			EnvVars: handler.EnvVars{
 				MergeQueueURL: "https://sqs.eu-west-2.amazonaws.com/test-url",
 			},
 			Event:     event,
@@ -141,8 +141,8 @@ func TestDispatcher(t *testing.T) {
 		event := events.DynamoDBEvent{}
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
-		args := lambda.HandlerArguments{
-			EnvVars: lambda.EnvVars{
+		args := handler.Arguments{
+			EnvVars: handler.EnvVars{
 				MergeQueueURL: "https://sqs.eu-west-2.amazonaws.com/test-url",
 			},
 			Event:     event,

@@ -4,19 +4,19 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/m-mizutani/minerva/pkg/lambda"
+	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
 )
 
-var logger = lambda.Logger
+var logger = handler.Logger
 
 func main() {
-	lambda.StartHandler(Handler)
+	handler.StartLambda(Handler)
 }
 
 // Handler is main procedure of dispatcher
-func Handler(args lambda.HandlerArguments) error {
+func Handler(args handler.Arguments) error {
 	var event events.DynamoDBEvent
 	if err := args.BindEvent(&event); err != nil {
 		return err

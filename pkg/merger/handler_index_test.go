@@ -1,4 +1,4 @@
-package main_test
+package merger_test
 
 /*
 func dumpIndexParquet(rows []internal.IndexRecord) string {

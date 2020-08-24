@@ -12,6 +12,8 @@ type SQSClientFactory func(region string) SQSClient
 // SQSClient is interface of AWS SDK SQS
 type SQSClient interface {
 	SendMessage(*sqs.SendMessageInput) (*sqs.SendMessageOutput, error)
+	ReceiveMessage(input *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error)
+	DeleteMessage(input *sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error)
 }
 
 // NewSQSClient creates actual AWS SQS SDK client

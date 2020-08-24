@@ -61,9 +61,7 @@ export class MinervaStack extends cdk.Stack {
       this,
       "LambdaRole",
       props.lambdaRoleARN,
-      {
-        mutable: false,
-      }
+      { mutable: false }
     );
     const dataBucket = s3.Bucket.fromBucketArn(
       this,
@@ -113,8 +111,6 @@ export class MinervaStack extends cdk.Stack {
       S3_REGION: props.dataS3Region,
       S3_BUCKET: props.dataS3Bucket,
       S3_PREFIX: props.dataS3Prefix,
-      INDEX_TABLE_NAME: indexTableName,
-      MESSAGE_TABLE_NAME: messageTableName,
       SENTRY_DSN: props.sentryDSN || "",
       SENTRY_ENVIRONMENT: props.sentryEnv || "",
       LOG_LEVEL: props.logLevel || "INFO",

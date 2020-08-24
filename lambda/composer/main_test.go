@@ -6,7 +6,7 @@ import (
 
 	"github.com/m-mizutani/minerva/internal/mock"
 	"github.com/m-mizutani/minerva/internal/testutil"
-	"github.com/m-mizutani/minerva/pkg/lambda"
+	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,8 +28,8 @@ func TestComposer(t *testing.T) {
 			Schema:    "index",
 			Size:      100,
 		})
-		args := lambda.HandlerArguments{
-			EnvVars:   lambda.EnvVars{},
+		args := handler.Arguments{
+			EnvVars:   handler.EnvVars{},
 			Event:     event,
 			ChunkRepo: chunkRepo,
 		}
@@ -62,8 +62,8 @@ func TestComposer(t *testing.T) {
 			Schema:    "index",
 			Size:      100,
 		})
-		args := lambda.HandlerArguments{
-			EnvVars:   lambda.EnvVars{},
+		args := handler.Arguments{
+			EnvVars:   handler.EnvVars{},
 			Event:     event,
 			ChunkRepo: chunkRepo,
 		}

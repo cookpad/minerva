@@ -1,4 +1,4 @@
-package lambda
+package handler
 
 import (
 	"context"
@@ -13,17 +13,17 @@ import (
 var Logger = internal.Logger
 
 // Handler has main logic of the lambda function
-type Handler func(HandlerArguments) error
+type Handler func(Arguments) error
 
-// StartHandler initialize AWS Lambda and invokes handler
-func StartHandler(handler Handler) {
+// StartLambda initialize AWS Lambda and invokes handler
+func StartLambda(handler Handler) {
 	Logger.SetLevel(logrus.InfoLevel)
 	Logger.SetFormatter(&logrus.JSONFormatter{})
 
 	lambda.Start(func(ctx context.Context, event interface{}) error {
 		defer internal.FlushError()
 
-		var args HandlerArguments
+		var args Arguments
 		if err := args.BindEnvVars(); err != nil {
 			internal.HandleError(err)
 			return err

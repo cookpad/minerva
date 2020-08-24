@@ -1,4 +1,4 @@
-package main_test
+package merger_test
 
 /*
 func dumpMessageParquet(rows []internal.MessageRecord) string {

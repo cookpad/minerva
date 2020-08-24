@@ -1,15 +1,15 @@
-package lambda_test
+package handler_test
 
 import (
 	"testing"
 
-	"github.com/m-mizutani/minerva/pkg/lambda"
+	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/go-playground/assert.v1"
 )
 
 func TestDecodeEvents(t *testing.T) {
-	args := lambda.HandlerArguments{
+	args := handler.Arguments{
 		Event: map[string][]map[string]string{
 			"Records": {
 				{
