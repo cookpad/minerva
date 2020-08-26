@@ -110,6 +110,7 @@ func makeIndex(args arguments, record events.S3EventRecord) error {
 
 	for _, dumper := range dumpers {
 		for _, f := range dumper.Files() {
+			f.dst.Bucket = args.S3Bucket
 			f.dst.Prefix = args.S3Prefix
 			dstObject := models.NewS3Object(args.S3Region, args.S3Bucket, f.dst.S3Key())
 
