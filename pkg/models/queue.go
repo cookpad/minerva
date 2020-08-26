@@ -1,5 +1,9 @@
 package models
 
+import (
+	"time"
+)
+
 // ComposeQueue is sent by indexer and received by composer
 type ComposeQueue struct {
 	S3Object  S3Object `json:"s3_object"`
@@ -20,4 +24,15 @@ type PartitionQueue struct {
 	Location  string            `json:"location"`
 	TableName string            `json:"table_name"`
 	Keys      map[string]string `json:"keys"`
+}
+
+// LogQueue is used in indexer
+type LogQueue struct {
+	Err       error
+	Timestamp time.Time
+	Tag       string
+	Message   string
+	Value     interface{}
+	Seq       int32
+	Src       S3Object
 }

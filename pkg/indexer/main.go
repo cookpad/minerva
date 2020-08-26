@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -26,10 +25,11 @@ func RunIndexer(ctx context.Context, sqsEvent events.SQSEvent, reader *rlogs.Rea
 	defer internal.FlushError()
 
 	args := Arguments{
-		Event:  sqsEvent,
-		Reader: reader,
-		NewS3:  adaptor.NewS3Client,
-		NewSQS: adaptor.NewSQSClient,
+		Event:      sqsEvent,
+		Reader:     reader,
+		NewS3:      adaptor.NewS3Client,
+		NewSQS:     adaptor.NewSQSClient,
+		NewEncoder: adaptor.NewMsgpackEncoder,
 	}
 	if err := handleEvent(args); err != nil {
 		internal.HandleError(err)
@@ -44,8 +44,9 @@ type Arguments struct {
 	Event  events.SQSEvent
 	Reader *rlogs.Reader
 
-	NewS3  adaptor.S3ClientFactory
-	NewSQS adaptor.SQSClientFactory
+	NewS3      adaptor.S3ClientFactory
+	NewSQS     adaptor.SQSClientFactory
+	NewEncoder adaptor.EncoderFactory
 }
 
 func handleEvent(args Arguments) error {
@@ -87,63 +88,49 @@ func handleEvent(args Arguments) error {
 	return nil
 }
 
-const (
-	indexQueueSize = 128
-)
-
 // MakeIndex is a process for one S3 object to make index file.
 func MakeIndex(args Arguments, record events.S3EventRecord) error {
 	srcObject := models.NewS3ObjectFromRecord(record)
-	s3Service := service.NewS3Service(args.NewS3)
 	sqsService := service.NewSQSService(args.NewSQS)
 
-	ch := makeLogChannel(srcObject, args.Reader)
 	meta := repository.NewMetaDynamoDB(args.AwsRegion, args.MetaTableName)
-
-	dumpers, err := dumpParquetFiles(ch, meta)
-	logger.WithFields(logrus.Fields{
-		"dumpers": dumpers,
-	}).Debug("Done dump parquet file(s)")
+	objectID, err := meta.GetObjecID(srcObject.Bucket, srcObject.Key)
 	if err != nil {
-		return errors.Wrap(err, "Fail to dump parquet")
+		return errors.Wrap(err, "Failed GetObjectID")
 	}
 
-	for _, dumper := range dumpers {
-		for _, f := range dumper.Files() {
-			f.dst.Bucket = args.S3Bucket
-			f.dst.Prefix = args.S3Prefix
-			dstObject := models.NewS3Object(args.S3Region, args.S3Bucket, f.dst.S3Key())
+	dstBase := models.NewS3Object(args.S3Region, args.S3Bucket, args.S3Prefix)
+	dumpService := service.NewDumpService(objectID, dstBase, args.NewS3, args.NewEncoder)
+	for q := range makeLogChannel(srcObject, args.Reader) {
+		if q.Err != nil {
+			return q.Err
+		}
 
-			if err := s3Service.UploadFileToS3(f.filePath, dstObject); err != nil {
-				logger.WithField("dst", dstObject).Error("internal.UploadFileToS3")
-				return errors.Wrapf(err, "Failed UploadFileToS3")
-			}
+		if err := dumpService.Dump(q); err != nil {
+			return err
+		}
+	}
 
-			if err := os.Remove(f.filePath); err != nil {
-				return errors.Wrapf(err, "Fail to remove dump file: %s", f.filePath)
-			}
+	for _, obj := range dumpService.RawObjects() {
+		partQueue := models.PartitionQueue{
+			Location:  obj.PartitionPath(),
+			TableName: obj.TableName(),
+			Keys:      obj.PartitionKeys(),
+		}
+		logger.WithField("q", partQueue).Info("Partition queue")
+		if err := sqsService.SendSQS(&partQueue, args.PartitionQueueURL); err != nil {
+			return errors.Wrap(err, "Fail to send parition queue")
+		}
 
-			partQueue := models.PartitionQueue{
-				Location:  f.dst.PartitionLocation(),
-				TableName: f.dst.TableName(),
-				Keys:      f.dst.PartitionKeys(),
-			}
-			logger.WithField("q", partQueue).Info("Partition queue")
-			if err := sqsService.SendSQS(&partQueue, args.PartitionQueueURL); err != nil {
-				return errors.Wrap(err, "Fail to send parition queue")
-			}
-
-			composeQueue := models.ComposeQueue{
-				S3Object:  dstObject,
-				Size:      int64(f.dataSize),
-				Schema:    dumper.Type(),
-				Partition: f.dst.Partition(),
-			}
-			logger.WithField("q", composeQueue).Info("Compose queue")
-			if err := sqsService.SendSQS(&composeQueue, args.ComposeQueueURL); err != nil {
-				return errors.Wrap(err, "Fail to send parition queue")
-			}
-
+		composeQueue := models.ComposeQueue{
+			S3Object:  *obj.Object(),
+			Size:      obj.DataSize,
+			Schema:    obj.Schema(),
+			Partition: obj.Partition(),
+		}
+		logger.WithField("q", composeQueue).Info("Compose queue")
+		if err := sqsService.SendSQS(&composeQueue, args.ComposeQueueURL); err != nil {
+			return errors.Wrap(err, "Fail to send parition queue")
 		}
 	}
 

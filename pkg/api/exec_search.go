@@ -8,12 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/m-mizutani/minerva/pkg/tokenizer"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/athena"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/m-mizutani/minerva/internal"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -107,7 +108,7 @@ func (x *MinervaHandler) ExecSearch(c *gin.Context) (*Response, Error) {
 }
 
 func buildSQL(req ExecSearchRequest, idxTable, msgTable string) (*string, error) {
-	tokenizer := internal.NewSimpleTokenizer()
+	tokenizer := tokenizer.NewSimpleTokenizer()
 
 	termSet := map[string]struct{}{}
 

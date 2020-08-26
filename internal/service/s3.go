@@ -35,6 +35,23 @@ func NewS3Service(newS3 adaptor.S3ClientFactory) *S3Service {
 	}
 }
 
+// Upload is for uploading object by io.Reader.
+func (x *S3Service) Upload(body io.Reader, dst models.S3Object, encoding string) error {
+	client := x.newS3(dst.Region)
+	if err := client.Upload(dst.Bucket, dst.Key, body, encoding); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				return errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", dst.Bucket, dst.Key)
+			}
+		} else {
+			return errors.Wrapf(aerr, "Fail to upload a parquet file in https: %s/%s", dst.Bucket, dst.Key)
+		}
+	}
+
+	return nil
+}
+
 // UploadFileToS3 upload a specified local file to S3
 func (x *S3Service) UploadFileToS3(filePath string, dst models.S3Object) error {
 	fd, err := os.Open(filePath)
@@ -94,7 +111,6 @@ func (x *S3Service) DownloadS3Object(obj models.S3Object) (*string, error) {
 		}
 
 		return nil, errors.Wrapf(err, "Fail to upload a parquet file in https: %s/%s", obj.Bucket, obj.Key)
-
 	}
 
 	defer resp.Body.Close()

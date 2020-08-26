@@ -3,6 +3,7 @@ package mock
 import (
 	"bytes"
 	"errors"
+	"io"
 	"io/ioutil"
 
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -73,4 +74,22 @@ func (x *S3Client) DeleteObjects(input *s3.DeleteObjectsInput) (*s3.DeleteObject
 	}
 
 	return nil, nil
+}
+
+// Upload of S3Client put data from io.Reader
+func (x *S3Client) Upload(bucket, key string, body io.Reader, encoding string) error {
+	raw, err := ioutil.ReadAll(body)
+	if err != nil {
+		return err
+	}
+
+	bkt, ok := x.data[bucket]
+	if !ok {
+		bkt = map[string][]byte{}
+		x.data[bucket] = bkt
+	}
+
+	bkt[key] = raw
+
+	return nil
 }

@@ -6,8 +6,6 @@ import (
 	"log"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // ParquetSchemaName identifies schema name
@@ -20,6 +18,16 @@ const (
 	ParquetSchemaMessage ParquetSchemaName = "message"
 )
 
+// AthenaTableName idicates table name and directory name
+type AthenaTableName string
+
+const (
+	// AthenaTableIndex is table name for index objects and directory name
+	AthenaTableIndex AthenaTableName = "indices"
+	// AthenaTableMessage is table name for message objects and directory name
+	AthenaTableMessage = "messages"
+)
+
 // ParquetMergeStat indicates path of merged/unmerged objects
 type ParquetMergeStat string
 
@@ -29,37 +37,6 @@ const (
 	// ParquetMergeStatUnmerged indicates unmerged object path
 	ParquetMergeStatUnmerged ParquetMergeStat = "unmerged"
 )
-
-// IndexRecord is used for inverted index of log files on S3 bucket.
-type IndexRecord struct {
-	// Tag should exist in indexRecord even if parition contains tag (tg) as key.
-	// Because a number of Athena table partition is up to 20,000 and
-	// minerva can have only about 50 tags for 1 year (365 days * 50 tags = 18250)
-	// Then I need to consider a case that partition "tg" can not be used and
-	// indexRecord should have Tag field.
-	Tag       string `parquet:"name=tag, type=UTF8, encoding=PLAIN_DICTIONARY" json:"tag"`
-	Timestamp int64  `parquet:"name=timestamp, type=INT64" json:"timestamp"`
-	Field     string `parquet:"name=field, type=UTF8, encoding=PLAIN_DICTIONARY" json:"field"`
-	Term      string `parquet:"name=term, type=UTF8, encoding=PLAIN_DICTIONARY" json:"term"`
-	ObjectID  int64  `parquet:"name=object_id, type=INT64" json:"object_id"`
-	Seq       int32  `parquet:"name=seq, type=INT32" json:"seq"`
-}
-
-// ObjectRecord has mapping from ObjectID to S3Bucket and S3Key to reduce index parquet size.
-type ObjectRecord struct {
-	ObjectID int64  `parquet:"name=object_id, type=INT64" json:"object_id"`
-	S3Bucket string `parquet:"name=s3_bucket, type=UTF8, encoding=PLAIN_DICTIONARY" json:"s3_bucket"`
-	S3Key    string `parquet:"name=s3_key, type=UTF8, encoding=PLAIN_DICTIONARY" json:"s3_key"`
-}
-
-// MessageRecord stores original log message that is encoded to JSON.
-type MessageRecord struct {
-	// Timestamp is unixtime (second) of original log.
-	Timestamp int64  `parquet:"name=timestamp, type=INT64" json:"timestamp"`
-	ObjectID  int64  `parquet:"name=object_id, type=INT64" json:"object_id"`
-	Seq       int32  `parquet:"name=seq, type=INT32" json:"seq"`
-	Message   string `parquet:"name=message, type=UTF8, encoding=PLAIN_DICTIONARY" json:"message"`
-}
 
 const (
 	s3DirNameIndex    = "indices"
@@ -205,69 +182,4 @@ func (x ParquetLocation) partitionDate() string {
 // Partition returns a partition related part of S3 key.
 func (x ParquetLocation) Partition() string {
 	return x.partitionDate()
-}
-
-// ParseS3Key parses S3 key to generate a new ParquetLocation
-func ParseS3Key(key, prefix string) (*ParquetLocation, error) {
-	loc := ParquetLocation{
-		Prefix: prefix,
-	}
-	// s3://{bucket}/{prefix}{schema}/{partition}/{merged,unmerged}/{srcBucket}/{srcKey}.parquet
-
-	if !strings.HasPrefix(key, prefix) {
-		return nil, fmt.Errorf("Prefix is not matched: %s %s", prefix, key)
-	}
-
-	suffixKey := key[len(prefix):]
-	arr := strings.Split(suffixKey, "/")
-
-	if len(arr) > 0 {
-		switch arr[0] {
-		case s3DirNameIndex:
-			loc.Schema = ParquetSchemaIndex
-		case s3DirNameMessage:
-			loc.Schema = ParquetSchemaMessage
-		default:
-			return nil, fmt.Errorf("Invalid schema name, must be %s or %s: %v", s3DirNameIndex, ParquetSchemaMessage, arr[0])
-		}
-	}
-
-	// dt key
-	if len(arr) > 1 && arr[1] != "" {
-		v := arr[1]
-		if !strings.HasPrefix(v, "dt=") {
-			return nil, fmt.Errorf("Invalid partition key (dt): %v", v)
-		}
-
-		ts, err := time.Parse("2006-01-02-15", v[len("dt="):])
-		if err != nil {
-			return nil, errors.Wrapf(err, "Fail to parse dt key: %v", v)
-		}
-		loc.Timestamp = ts
-	}
-
-	// merge status
-	if len(arr) > 2 && arr[2] != "" {
-		v := arr[2]
-		switch v {
-		case s3DirNameMerged:
-			loc.MergeStat = ParquetMergeStatMerged
-		case s3DirNameUnmerged:
-			loc.MergeStat = ParquetMergeStatUnmerged
-		default:
-			return nil, fmt.Errorf("Invalid merge status: %v", v)
-		}
-	}
-
-	// src bucket
-	if len(arr) > 3 {
-		loc.SrcBucket = arr[3]
-	}
-
-	// src key
-	if len(arr) > 4 {
-		loc.SrcKey = strings.Join(arr[4:], "/")
-	}
-
-	return &loc, nil
 }

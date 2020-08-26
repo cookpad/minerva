@@ -30,16 +30,20 @@ func NewS3ObjectFromRecord(record events.S3EventRecord) S3Object {
 	}
 }
 
-func (x *S3Object) AppendKey(append string) {
-	if strings.HasSuffix(x.Key, "/") {
-		x.Key += append
-	} else {
-		x.Key += "/" + append
-	}
+func (x *S3Object) AppendKey(postfix string) *S3Object {
+	newObj := *x
+	newObj.Key += postfix
+	return &newObj
 }
 
 func (x *S3Object) Encode() string {
 	return fmt.Sprintf("%s@%s:%s", x.Bucket, x.Region, x.Key)
+}
+
+// Path returns full path by s3 bucket name and key.
+// e.g.) s3://your-bucket/some/key
+func (x *S3Object) Path() string {
+	return fmt.Sprintf("s3://%s/%s", x.Bucket, x.Key)
 }
 
 func DecodeS3Object(raw string) (*S3Object, error) {

@@ -2,26 +2,19 @@ package indexer
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 )
 
-type logQueue struct {
-	Err       error
-	Timestamp time.Time
-	Tag       string
-	Message   string
-	Value     interface{}
-	Seq       int32
-	Src       models.S3Object
-}
+const (
+	indexQueueSize = 128
+)
 
 // makeLogChannel loads log data from S3 bucket
-func makeLogChannel(src models.S3Object, reader *rlogs.Reader) chan *logQueue {
-	ch := make(chan *logQueue, indexQueueSize)
+func makeLogChannel(src models.S3Object, reader *rlogs.Reader) chan *models.LogQueue {
+	ch := make(chan *models.LogQueue, indexQueueSize)
 
 	go func() {
 		defer close(ch)
@@ -32,17 +25,17 @@ func makeLogChannel(src models.S3Object, reader *rlogs.Reader) chan *logQueue {
 			Key:    src.Key,
 		}) {
 			if log.Error != nil {
-				ch <- &logQueue{Err: log.Error}
+				ch <- &models.LogQueue{Err: log.Error}
 				return
 			}
 
 			raw, err := json.Marshal(log.Log.Values)
 			if err != nil {
-				ch <- &logQueue{Err: errors.Wrapf(err, "Fail to marshal log message: %v", log.Log.Values)}
+				ch <- &models.LogQueue{Err: errors.Wrapf(err, "Fail to marshal log message: %v", log.Log.Values)}
 				return
 			}
 
-			ch <- &logQueue{
+			ch <- &models.LogQueue{
 				Message:   string(raw),
 				Timestamp: log.Log.Timestamp,
 				Value:     log.Log.Values,
