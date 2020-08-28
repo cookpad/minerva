@@ -20,7 +20,7 @@ require (
 	github.com/guregu/dynamo v1.6.1
 	github.com/itchyny/gojq v0.9.0
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
-	github.com/klauspost/compress v1.10.3 // indirect
+	github.com/klauspost/compress v1.10.3
 	github.com/kr/text v0.2.0 // indirect
 	github.com/m-mizutani/rlogs v0.1.8
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
@@ -31,6 +31,7 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/tebeka/strftime v0.1.3 // indirect
 	github.com/urfave/cli/v2 v2.2.0
+	github.com/vmihailenco/msgpack/v5 v5.0.0-beta.1
 	// github.com/xitongsys/parquet-go must be fixed on v1.3.0 to avoid zstd
 	github.com/xitongsys/parquet-go v1.5.1
 	github.com/xitongsys/parquet-go-source v0.0.0-20200326031722-42b453e70c3b

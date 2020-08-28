@@ -47,6 +47,7 @@ type Arguments struct {
 	NewS3      adaptor.S3ClientFactory
 	NewSQS     adaptor.SQSClientFactory
 	NewEncoder adaptor.EncoderFactory
+	NewDecoder adaptor.DecoderFactory
 }
 
 func handleEvent(args Arguments) error {
@@ -100,18 +101,18 @@ func MakeIndex(args Arguments, record events.S3EventRecord) error {
 	}
 
 	dstBase := models.NewS3Object(args.S3Region, args.S3Bucket, args.S3Prefix)
-	dumpService := service.NewDumpService(objectID, dstBase, args.NewS3, args.NewEncoder)
+	recordService := service.NewRecordService(args.NewS3, args.NewEncoder, args.NewDecoder)
 	for q := range makeLogChannel(srcObject, args.Reader) {
 		if q.Err != nil {
 			return q.Err
 		}
 
-		if err := dumpService.Dump(q); err != nil {
+		if err := recordService.Dump(q, objectID, &dstBase); err != nil {
 			return err
 		}
 	}
 
-	for _, obj := range dumpService.RawObjects() {
+	for _, obj := range recordService.RawObjects() {
 		partQueue := models.PartitionQueue{
 			Location:  obj.PartitionPath(),
 			TableName: obj.TableName(),

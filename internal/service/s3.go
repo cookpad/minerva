@@ -35,8 +35,8 @@ func NewS3Service(newS3 adaptor.S3ClientFactory) *S3Service {
 	}
 }
 
-// Upload is for uploading object by io.Reader.
-func (x *S3Service) Upload(body io.Reader, dst models.S3Object, encoding string) error {
+// AsyncUpload is for uploading object by io.Reader.
+func (x *S3Service) AsyncUpload(body io.Reader, dst models.S3Object, encoding string) error {
 	client := x.newS3(dst.Region)
 	if err := client.Upload(dst.Bucket, dst.Key, body, encoding); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -50,6 +50,28 @@ func (x *S3Service) Upload(body io.Reader, dst models.S3Object, encoding string)
 	}
 
 	return nil
+}
+
+// AsyncDownload is for downloading data via io.ReadCloser
+func (x *S3Service) AsyncDownload(src models.S3Object) (io.ReadCloser, error) {
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(src.Bucket),
+		Key:    aws.String(src.Key),
+	}
+	client := x.newS3(src.Region)
+	output, err := client.GetObject(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				return nil, errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", src.Bucket, src.Key)
+			}
+		} else {
+			return nil, errors.Wrapf(aerr, "Fail to upload a parquet file in https: %s/%s", src.Bucket, src.Key)
+		}
+	}
+
+	return output.Body, nil
 }
 
 // UploadFileToS3 upload a specified local file to S3

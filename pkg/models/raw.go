@@ -19,6 +19,7 @@ type RawObject struct {
 // NewRawObject is constrcutor of RawObject. *ext* is extension of the object.
 func NewRawObject(prefix *RawObjectPrefix, ext string) *RawObject {
 	return &RawObject{
+		prefix:       *prefix,
 		fileNameSalt: uuid.New().String(),
 		ext:          ext,
 	}
@@ -100,15 +101,13 @@ func (x *RawObject) Schema() string {
 
 // Object returns
 func (x *RawObject) Object() *S3Object {
-	objKey := strings.Join([]string{
+	additionalKey := strings.Join([]string{
+		"raw",
+		x.Partition(),
 		x.prefix.src.Bucket,
 		x.prefix.src.Key,
-	}, "/")
-	s3Key := strings.Join([]string{
-		x.Partition(),
-		x.Object().AppendKey(objKey).Key,
 		fmt.Sprintf("%s.%s", x.fileNameSalt, x.ext),
 	}, "/")
 
-	return x.prefix.base.AppendKey(s3Key)
+	return x.prefix.base.AppendKey(additionalKey)
 }

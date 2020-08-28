@@ -3,8 +3,8 @@ package transform
 import (
 	"fmt"
 
+	"github.com/m-mizutani/minerva/internal/tokenizer"
 	"github.com/m-mizutani/minerva/pkg/models"
-	"github.com/m-mizutani/minerva/pkg/tokenizer"
 )
 
 type LogToRecord func(q *models.LogQueue, objID int64) ([]interface{}, error)

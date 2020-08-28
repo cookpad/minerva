@@ -1,4 +1,4 @@
-package tokenizer_test
+package tokenizer
 
 import (
 	"testing"

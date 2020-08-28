@@ -5,8 +5,10 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"log"
 
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/klauspost/compress/gzip"
 	"github.com/m-mizutani/minerva/internal/adaptor"
 )
 
@@ -19,10 +21,15 @@ func NewS3Client(region string) adaptor.S3Client {
 
 // S3Client is on memory S3Client mock
 type S3Client struct {
-	data map[string]map[string][]byte
+	data map[string]map[string]*s3Object
 }
 
-var mockS3ClientDataStore = map[string]map[string][]byte{}
+type s3Object struct {
+	data     []byte
+	encoding string
+}
+
+var mockS3ClientDataStore = map[string]map[string]*s3Object{}
 
 // GetObject of S3Client loads []bytes from memory
 func (x *S3Client) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
@@ -35,8 +42,18 @@ func (x *S3Client) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, err
 		return nil, errors.New(s3.ErrCodeNoSuchKey)
 	}
 
+	var body io.Reader
+	if obj.encoding == "gzip" {
+		gr, err := gzip.NewReader(bytes.NewReader(obj.data))
+		if err != nil {
+			log.Fatal("gzip.NewReader", err)
+		}
+		body = gr
+	} else {
+		body = bytes.NewReader(obj.data)
+	}
 	return &s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader(obj)),
+		Body: ioutil.NopCloser(body),
 	}, nil
 }
 
@@ -49,11 +66,13 @@ func (x *S3Client) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, err
 
 	bucket, ok := x.data[*input.Bucket]
 	if !ok {
-		bucket = map[string][]byte{}
+		bucket = map[string]*s3Object{}
 		x.data[*input.Bucket] = bucket
 	}
 
-	bucket[*input.Key] = raw
+	bucket[*input.Key] = &s3Object{
+		data: raw,
+	}
 
 	return &s3.PutObjectOutput{}, nil
 }
@@ -85,11 +104,13 @@ func (x *S3Client) Upload(bucket, key string, body io.Reader, encoding string) e
 
 	bkt, ok := x.data[bucket]
 	if !ok {
-		bkt = map[string][]byte{}
+		bkt = make(map[string]*s3Object)
 		x.data[bucket] = bkt
 	}
 
-	bkt[key] = raw
-
+	bkt[key] = &s3Object{
+		data:     raw,
+		encoding: encoding,
+	}
 	return nil
 }

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/m-mizutani/minerva/pkg/tokenizer"
+	"github.com/m-mizutani/minerva/internal/tokenizer"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"

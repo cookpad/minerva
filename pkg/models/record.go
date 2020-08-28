@@ -1,5 +1,8 @@
 package models
 
+// Record is interface of Index and Message records
+type Record interface{}
+
 // IndexRecord is used for inverted index of log files on S3 bucket.
 type IndexRecord struct {
 	Tag string `parquet:"name=tag, type=UTF8, encoding=PLAIN_DICTIONARY" json:"tag" msgpack:"tag"`

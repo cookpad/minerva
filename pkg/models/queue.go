@@ -36,3 +36,9 @@ type LogQueue struct {
 	Seq       int32
 	Src       S3Object
 }
+
+// RecordQueue is used for RecordService.Load
+type RecordQueue struct {
+	Err    error
+	Record Record
+}
