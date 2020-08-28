@@ -35,6 +35,7 @@ func main() {
 		},
 		Commands: []*cli.Command{
 			mergeCommand(&args),
+			proxyCommand(&args),
 		},
 	}
 
