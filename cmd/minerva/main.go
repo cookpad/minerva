@@ -16,23 +16,6 @@ func main() {
 	app := &cli.App{
 		Name:  "minerva",
 		Usage: "CLI utility of minerva",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "stack-name",
-				Aliases:     []string{"s"},
-				Usage:       "StackName of CloudFormation",
-				Required:    true,
-				Destination: &args.StackName,
-			},
-			&cli.StringFlag{
-				Name:        "region",
-				Aliases:     []string{"r"},
-				Usage:       "AWS region",
-				Required:    true,
-				EnvVars:     []string{"AWS_REGION"},
-				Destination: &args.Region,
-			},
-		},
 		Commands: []*cli.Command{
 			mergeCommand(&args),
 			proxyCommand(&args),
