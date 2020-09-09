@@ -8,9 +8,12 @@ import (
 	"github.com/m-mizutani/minerva/internal/transform"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type RecordService struct {
+	ObjectSizeLimit int64
+
 	s3Service  *S3Service
 	newEncoder adaptor.EncoderFactory
 	newDecoder adaptor.DecoderFactory
@@ -20,10 +23,11 @@ type RecordService struct {
 
 func NewRecordService(newS3 adaptor.S3ClientFactory, newEncoder adaptor.EncoderFactory, newDecoder adaptor.DecoderFactory) *RecordService {
 	return &RecordService{
-		s3Service:  NewS3Service(newS3),
-		newEncoder: newEncoder,
-		newDecoder: newDecoder,
-		dumpers:    dumperMap{},
+		ObjectSizeLimit: 512 * 1024 * 1024,
+		s3Service:       NewS3Service(newS3),
+		newEncoder:      newEncoder,
+		newDecoder:      newDecoder,
+		dumpers:         dumperMap{},
 	}
 }
 
@@ -34,7 +38,7 @@ func (x *RecordService) Dump(q *models.LogQueue, objectID int64, dstBase *models
 	}
 
 	for _, prefix := range prefixs {
-		dumper := x.dumpers.getDumper(prefix, x.newEncoder, x.s3Service, objectID)
+		dumper := x.dumpers.getDumper(prefix, x.newEncoder, x.s3Service, objectID, x.ObjectSizeLimit)
 		if err := dumper.dump(q); err != nil {
 			return err
 		}
@@ -53,43 +57,37 @@ func (x *RecordService) Close() error {
 	return nil
 }
 
-func (x *RecordService) Load(src *models.S3Object, schema models.ParquetSchemaName) chan *models.RecordQueue {
-	ch := make(chan *models.RecordQueue)
+func (x *RecordService) Load(src *models.S3Object, schema models.ParquetSchemaName, ch chan *models.RecordQueue) error {
+	body, err := x.s3Service.AsyncDownload(*src)
+	if err != nil {
+		return errors.Wrap(err, "Failed AsyncDownload")
+	}
+	defer body.Close()
 
-	go func() {
-		body, err := x.s3Service.AsyncDownload(*src)
-		if err != nil {
-			ch <- &models.RecordQueue{Err: errors.Wrap(err, "Failed AsyncDownload")}
-			close(ch)
-			return
+	decoder := x.newDecoder(body)
+	for {
+		var record models.Record
+		switch schema {
+		case models.ParquetSchemaIndex:
+			record = &models.IndexRecord{}
+		case models.ParquetSchemaMessage:
+			record = &models.MessageRecord{}
+		default:
+			logger.Fatalf("Unsupported schema '%v' in RecordService.Load", schema)
 		}
-		defer body.Close()
 
-		decoder := x.newDecoder(body)
-		for {
-			var record models.Record
-			switch schema {
-			case models.ParquetSchemaIndex:
-				record = &models.IndexRecord{}
-			case models.ParquetSchemaMessage:
-				record = &models.MessageRecord{}
-			default:
-				logger.Fatalf("Unsupported schema '%v' in RecordService.Load", schema)
+		if err := decoder.Decode(&record); err != nil {
+			if err != io.EOF {
+				return errors.Wrap(err, "Failed to decode record")
 			}
-
-			if err := decoder.Decode(&record); err != nil {
-				if err != io.EOF {
-					ch <- &models.RecordQueue{Err: errors.Wrap(err, "Failed to decode record")}
-				}
-				close(ch)
-				return
-			}
-
-			ch <- &models.RecordQueue{Record: record}
+			return nil
 		}
-	}()
 
-	return ch
+		q := &models.RecordQueue{}
+		q.Records = append(q.Records, record)
+
+		ch <- q
+	}
 }
 
 func (x *RecordService) RawObjects() []*models.RawObject {
@@ -114,11 +112,18 @@ type dumper struct {
 
 	current   *pipeline
 	pipelines []*pipeline
+
+	sizeLimit int64
 }
 
-func (x *dumper) newPipeline() (*pipeline, error) {
+func (x *dumper) renewPipeline() (*pipeline, error) {
 	pline := newPipeline(x.prefix, x.s3Service, x.newEncoder)
 	if x.current != nil {
+		logger.WithFields(logrus.Fields{
+			"size":  x.current.encoder.Size(),
+			"limit": x.sizeLimit,
+		}).Debug("renew pipeline")
+
 		if err := x.current.close(); err != nil {
 			return nil, err
 		}
@@ -137,8 +142,8 @@ func (x *dumper) dump(q *models.LogQueue) error {
 	}
 
 	pline := x.current
-	if pline == nil {
-		pline, err = x.newPipeline()
+	if pline == nil || pline.encoder.Size() > x.sizeLimit {
+		pline, err = x.renewPipeline()
 		if err != nil {
 			return errors.Wrap(err, "Failed newPipeline")
 		}
@@ -166,7 +171,7 @@ func (x *dumper) close() error {
 
 type dumperMap map[string]*dumper
 
-func (x dumperMap) getDumper(prefix *models.RawObjectPrefix, newEncoder adaptor.EncoderFactory, s3Service *S3Service, objID int64) *dumper {
+func (x dumperMap) getDumper(prefix *models.RawObjectPrefix, newEncoder adaptor.EncoderFactory, s3Service *S3Service, objID, sizeLimit int64) *dumper {
 	d, ok := x[prefix.Key()]
 	if ok {
 		return d
@@ -188,6 +193,7 @@ func (x dumperMap) getDumper(prefix *models.RawObjectPrefix, newEncoder adaptor.
 		s3Service:    s3Service,
 		transformLog: logTransform,
 		objectID:     objID,
+		sizeLimit:    sizeLimit,
 	}
 	x[prefix.Key()] = d
 
@@ -215,9 +221,11 @@ func newPipeline(prefix *models.RawObjectPrefix, s3Service *S3Service, newEncode
 
 	go func() {
 		defer wg.Done()
+		obj := rawObject.Object()
 		if err := s3Service.AsyncUpload(pr, *rawObject.Object(), encoder.ContentEncoding()); err != nil {
 			logger.WithError(err).Error("Failed AsyncUpload")
 		}
+		logger.WithField("obj", obj).Info("Done upload")
 	}()
 
 	pline := &pipeline{

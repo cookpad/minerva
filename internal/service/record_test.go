@@ -46,9 +46,17 @@ func TestRecordService(t *testing.T) {
 		}
 
 		var records []models.Record
-		for q := range svc.Load(idxObj.Object(), models.ParquetSchemaName(idxObj.Schema())) {
-			records = append(records, q.Record)
+		ch := make(chan *models.RecordQueue, 1)
+		go func() {
+			defer close(ch)
+			err := svc.Load(idxObj.Object(), models.ParquetSchemaName(idxObj.Schema()), ch)
+			require.NoError(tt, err)
+		}()
+
+		for q := range ch {
+			records = append(records, q.Records...)
 		}
+
 		require.Equal(tt, 1, len(records))
 		idxRecord, ok := records[0].(*models.IndexRecord)
 		require.True(tt, ok)

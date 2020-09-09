@@ -34,37 +34,37 @@ type actionLog struct {
 
 func newLogStream() chan *api.LogQueue {
 	logs := [][]string{
-		[]string{"test.user", "1580000000", mustToJSON(map[string]interface{}{
+		{"test.user", "1580000000", mustToJSON(map[string]interface{}{
 			"name":  "Ao",
 			"color": "blue",
 			"rank":  0,
 		})},
-		[]string{"test.user", "1580000002", mustToJSON(map[string]interface{}{
+		{"test.user", "1580000002", mustToJSON(map[string]interface{}{
 			"name":  "Tou",
 			"color": "orange",
 			"rank":  1,
 		})},
-		[]string{"test.user", "1580000004", mustToJSON(map[string]interface{}{
+		{"test.user", "1580000004", mustToJSON(map[string]interface{}{
 			"name": "Alice",
 			"rank": 100,
 		})},
-		[]string{"test.user", "1580000005", mustToJSON(map[string]interface{}{
+		{"test.user", "1580000005", mustToJSON(map[string]interface{}{
 			"name": "Barth",
 			"rank": 1,
 		})},
-		[]string{"test.user", "1580000009", mustToJSON(map[string]interface{}{
+		{"test.user", "1580000009", mustToJSON(map[string]interface{}{
 			"name": "Chris",
 			"rank": 200,
 		})},
-		[]string{"test.user", "1580000010", mustToJSON(map[string]interface{}{
+		{"test.user", "1580000010", mustToJSON(map[string]interface{}{
 			"name": "Dymos",
 			"rank": 300,
 		})},
-		[]string{"test.action", "1580000012", mustToJSON(actionLog{
+		{"test.action", "1580000012", mustToJSON(actionLog{
 			Name:   "attack",
 			Target: "rock",
 		})},
-		[]string{"test.action", "1580000012", mustToJSON(actionLog{
+		{"test.action", "1580000012", mustToJSON(actionLog{
 			Name:   "Ao",
 			Target: "paper",
 		})},

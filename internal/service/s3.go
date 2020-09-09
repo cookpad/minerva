@@ -42,10 +42,10 @@ func (x *S3Service) AsyncUpload(body io.Reader, dst models.S3Object, encoding st
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				return errors.Wrapf(aerr, "Fail to upload a parquet file in AWS: %s/%s", dst.Bucket, dst.Key)
+				return errors.Wrapf(aerr, "Fail to upload a record file in AWS: %s/%s", dst.Bucket, dst.Key)
 			}
 		} else {
-			return errors.Wrapf(aerr, "Fail to upload a parquet file in https: %s/%s", dst.Bucket, dst.Key)
+			return errors.Wrapf(aerr, "Fail to upload a record file in https: %s/%s", dst.Bucket, dst.Key)
 		}
 	}
 

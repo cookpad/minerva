@@ -19,11 +19,13 @@ func makeLogChannel(src models.S3Object, reader *rlogs.Reader) chan *models.LogQ
 	go func() {
 		defer close(ch)
 
-		for log := range reader.Read(&rlogs.AwsS3LogSource{
+		logSource := &rlogs.AwsS3LogSource{
 			Region: src.Region,
 			Bucket: src.Bucket,
 			Key:    src.Key,
-		}) {
+		}
+
+		for log := range reader.Read(logSource) {
 			if log.Error != nil {
 				ch <- &models.LogQueue{Err: log.Error}
 				return

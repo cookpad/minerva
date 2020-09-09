@@ -59,8 +59,6 @@ func Handler(args handler.Arguments) error {
 		chunks = append(chunks, msgChunks...)
 	}
 
-	logger.WithField("chunks", chunks).Info("waiwai")
-
 	for _, old := range chunks {
 		chunk, err := chunkService.FreezeChunk(old)
 		if chunk == nil {
@@ -69,6 +67,8 @@ func Handler(args handler.Arguments) error {
 		if err != nil {
 			return errors.Wrap(err, "chunkService.FreezeChunk")
 		}
+
+		logger.WithField("chunk", chunk).Info("composing chunk")
 
 		src, err := chunk.ToS3ObjectSlice()
 		if err != nil {
@@ -79,6 +79,7 @@ func Handler(args handler.Arguments) error {
 		dst := models.NewS3Object(args.S3Region, args.S3Bucket, s3Key)
 		q := models.MergeQueue{
 			Schema:     models.ParquetSchemaName(chunk.Schema),
+			TotalSize:  chunk.TotalSize,
 			SrcObjects: src,
 			DstObject:  dst,
 		}

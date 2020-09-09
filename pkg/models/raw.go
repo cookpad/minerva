@@ -58,16 +58,15 @@ func (x *RawObjectPrefix) Schema() ParquetSchemaName { return x.schema }
 
 // Partition returns a part of path
 func (x *RawObject) Partition() string {
-	return strings.Join([]string{
-		x.TableName(),
-		x.PartitionLabel(),
-	}, "/")
+	return fmt.Sprintf("dt=%s", x.prefix.dtKey)
 }
 
 // PartitionPath returns S3 path to top of the partition. The path including s3:// prefix and bucket name.
 // e.g.) s3://your-bucket/prefix/indicies/dt=2020-01-02-03/
 func (x *RawObject) PartitionPath() string {
-	return x.prefix.base.AppendKey(x.Partition() + "/").Path()
+	return x.prefix.base.AppendKey(strings.Join([]string{
+		x.TableName(), x.Partition(), "",
+	}, "/")).Path()
 }
 
 // PartitionKeys returns map of partition name and value
@@ -75,11 +74,6 @@ func (x *RawObject) PartitionKeys() map[string]string {
 	return map[string]string{
 		"dt": x.prefix.dtKey,
 	}
-}
-
-// PartitionLabel returns a part of S3 path for Athena partition
-func (x *RawObject) PartitionLabel() string {
-	return fmt.Sprintf("dt=%s", x.prefix.dtKey)
 }
 
 // TableName returns Athena table name as string type
@@ -103,6 +97,7 @@ func (x *RawObject) Schema() string {
 func (x *RawObject) Object() *S3Object {
 	additionalKey := strings.Join([]string{
 		"raw",
+		x.TableName(),
 		x.Partition(),
 		x.prefix.src.Bucket,
 		x.prefix.src.Key,

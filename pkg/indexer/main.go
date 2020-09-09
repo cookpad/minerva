@@ -44,10 +44,10 @@ type Arguments struct {
 	Event  events.SQSEvent
 	Reader *rlogs.Reader
 
-	NewS3      adaptor.S3ClientFactory
-	NewSQS     adaptor.SQSClientFactory
-	NewEncoder adaptor.EncoderFactory
-	NewDecoder adaptor.DecoderFactory
+	NewS3      adaptor.S3ClientFactory  `json:"-"`
+	NewSQS     adaptor.SQSClientFactory `json:"-"`
+	NewEncoder adaptor.EncoderFactory   `json:"-"`
+	NewDecoder adaptor.DecoderFactory   `json:"-"`
 }
 
 func handleEvent(args Arguments) error {
@@ -110,6 +110,10 @@ func MakeIndex(args Arguments, record events.S3EventRecord) error {
 		if err := recordService.Dump(q, objectID, &dstBase); err != nil {
 			return err
 		}
+	}
+
+	if err := recordService.Close(); err != nil {
+		return err
 	}
 
 	for _, obj := range recordService.RawObjects() {

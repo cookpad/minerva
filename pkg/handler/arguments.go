@@ -15,9 +15,11 @@ type Arguments struct {
 	EnvVars
 	Event interface{}
 
-	NewS3     adaptor.S3ClientFactory    `json:"-"`
-	NewSQS    adaptor.SQSClientFactory   `json:"-"`
-	ChunkRepo repository.ChunkRepository `json:"-"`
+	NewS3      adaptor.S3ClientFactory    `json:"-"`
+	NewSQS     adaptor.SQSClientFactory   `json:"-"`
+	ChunkRepo  repository.ChunkRepository `json:"-"`
+	NewEncoder adaptor.EncoderFactory     `json:"-"`
+	NewDecoder adaptor.DecoderFactory     `json:"-"`
 }
 
 // EventRecord is decapslated event data (e.g. Body of SQS event)
@@ -78,16 +80,44 @@ func (x *Arguments) ChunkService() *service.ChunkService {
 
 // S3Service provides service.S3Service with S3 adaptor
 func (x *Arguments) S3Service() *service.S3Service {
-	if x.NewS3 != nil {
-		return service.NewS3Service(x.NewS3)
-	}
-	return service.NewS3Service(adaptor.NewS3Client)
+	return service.NewS3Service(x.newS3())
 }
 
 // SQSService provides service.SQSService with SQS adaptor
 func (x *Arguments) SQSService() *service.SQSService {
-	if x.NewSQS != nil {
-		return service.NewSQSService(x.NewSQS)
+	return service.NewSQSService(x.newSQS())
+}
+
+// RecordService provides encode/decode logic and S3 access for normalized log data
+func (x *Arguments) RecordService() *service.RecordService {
+	return service.NewRecordService(x.newS3(), x.newEncoder(), x.newDecoder())
+}
+
+func (x *Arguments) newS3() adaptor.S3ClientFactory {
+	if x.NewS3 != nil {
+		return x.NewS3
+	} else {
+		return adaptor.NewS3Client
 	}
-	return service.NewSQSService(adaptor.NewSQSClient)
+}
+func (x *Arguments) newSQS() adaptor.SQSClientFactory {
+	if x.NewSQS != nil {
+		return x.NewSQS
+	} else {
+		return adaptor.NewSQSClient
+	}
+}
+func (x *Arguments) newEncoder() adaptor.EncoderFactory {
+	if x.NewEncoder != nil {
+		return x.NewEncoder
+	} else {
+		return adaptor.NewMsgpackEncoder
+	}
+}
+func (x *Arguments) newDecoder() adaptor.DecoderFactory {
+	if x.NewDecoder != nil {
+		return x.NewDecoder
+	} else {
+		return adaptor.NewMsgpackDecoder
+	}
 }

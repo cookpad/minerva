@@ -15,6 +15,7 @@ type ComposeQueue struct {
 // MergeQueue specify src object locations to be merged and destination object location.
 type MergeQueue struct {
 	Schema     ParquetSchemaName `json:"schema"`
+	TotalSize  int64             `json:"total_size"`
 	SrcObjects []*S3Object       `json:"src_objects"`
 	DstObject  S3Object          `json:"dst_object"`
 }
@@ -39,6 +40,6 @@ type LogQueue struct {
 
 // RecordQueue is used for RecordService.Load
 type RecordQueue struct {
-	Err    error
-	Record Record
+	Err     error
+	Records []Record
 }
