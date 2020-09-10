@@ -26,7 +26,7 @@ func mergeHandler(args handler.Arguments) error {
 			return err
 		}
 
-		if err := merger.MergeChunk(args, &q); err != nil {
+		if err := merger.MergeChunk(args, &q, nil); err != nil {
 			return errors.Wrap(err, "Failed composeChunk")
 		}
 	}

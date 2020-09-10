@@ -29,9 +29,7 @@ func StartLambda(handler Handler) {
 			return err
 		}
 
-		if args.LogLevel != "" {
-			internal.SetLogLevel(args.LogLevel)
-		}
+		SetLogLevel(args.LogLevel)
 
 		Logger.WithFields(logrus.Fields{"args": args, "event": event}).Debug("Start handler")
 		args.Event = event
@@ -45,4 +43,10 @@ func StartLambda(handler Handler) {
 
 		return nil
 	})
+}
+
+func SetLogLevel(level string) {
+	if level != "" {
+		internal.SetLogLevel(level)
+	}
 }

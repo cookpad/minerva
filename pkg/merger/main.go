@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 
-	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/pkg/errors"
@@ -14,10 +14,20 @@ import (
 	"github.com/xitongsys/parquet-go/writer"
 )
 
-var logger = internal.Logger
+var logger = handler.Logger
+
+// MergeOptions has option values of MergeChunk
+type MergeOptions struct {
+	DoNotRemoveSrc     bool
+	DoNotRemoveParquet bool
+}
 
 // MergeChunk merges S3 objects to one parquet file
-func MergeChunk(args handler.Arguments, q *models.MergeQueue) error {
+func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions) error {
+	if opt == nil {
+		opt = &MergeOptions{}
+	}
+
 	recordService := args.RecordService()
 	ch := make(chan *models.RecordQueue)
 	newRecordMap := map[models.ParquetSchemaName]newRecord{
@@ -45,6 +55,7 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue) error {
 		}
 	}()
 
+	logger.Info("start dumping")
 	mergedFile, err = dumpParquet(ch, newRec)
 	if err != nil {
 		return err
@@ -54,17 +65,21 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue) error {
 		return nil
 	}
 
-	if mergedFile != nil {
+	logger.WithField("mergedFile", *mergedFile).Debug("Merged records")
+	if !opt.DoNotRemoveParquet {
 		defer os.Remove(*mergedFile)
-
-		dst := models.NewS3Object(q.DstObject.Region, q.DstObject.Bucket, q.DstObject.Key)
-		if err := s3Service.UploadFileToS3(*mergedFile, dst); err != nil {
-			return err
-		}
 	}
 
-	if err := s3Service.DeleteS3Objects(q.SrcObjects); err != nil {
+	dst := models.NewS3Object(q.DstObject.Region, q.DstObject.Bucket, q.DstObject.Key)
+	if err := s3Service.UploadFileToS3(*mergedFile, dst); err != nil {
 		return err
+	}
+
+	logger.WithField("dst", q.DstObject).Debug("Uploaded merged parquet file")
+	if !opt.DoNotRemoveSrc {
+		if err := s3Service.DeleteS3Objects(q.SrcObjects); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -95,12 +110,13 @@ func dumpParquet(ch chan *models.RecordQueue, newRec newRecord) (*string, error)
 	}
 	defer func() {
 		logger.Debug("Stopping parquet writer...")
+
 		if err := pw.WriteStop(); err != nil {
 			logger.WithError(err).Error("Fail to stop writing parquet file")
 		}
 	}()
 
-	pw.RowGroupSize = 16 * 1024 * 1024
+	pw.RowGroupSize = 128 * 1024 * 1024
 	pw.CompressionType = parquet.CompressionCodec_SNAPPY
 
 	queueCount := 0
@@ -116,6 +132,10 @@ func dumpParquet(ch chan *models.RecordQueue, newRec newRecord) (*string, error)
 			if err := pw.Write(q.Records[i]); err != nil {
 				return nil, errors.Wrapf(err, "Fail to write record as parquet: %v", q.Records[i])
 			}
+		}
+
+		if queueCount%10000 == 0 {
+			runtime.GC()
 		}
 	}
 	logger.WithField("queueCount", queueCount).Debugf("Dumped records: %v", filePath)
