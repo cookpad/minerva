@@ -1,6 +1,11 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/merger"
@@ -15,6 +20,23 @@ func main() {
 }
 
 func mergeHandler(args handler.Arguments) error {
+	// Clean up /tmp for undeleted .parquet files
+	if _, ok := os.LookupEnv("AWS_LAMBDA_FUNCTION_NAME"); ok {
+		tmpDir := "/tmp"
+		files, err := ioutil.ReadDir(tmpDir)
+		if err != nil {
+			return errors.Wrap(err, "Failed to list /tmp")
+		}
+
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), ".parquet") {
+				if err := os.Remove(filepath.Join(tmpDir, file.Name())); err != nil {
+					logger.WithError(err).Warn("can not remove existing .parquet file")
+				}
+			}
+		}
+	}
+
 	records, err := args.DecapSQSEvent()
 	if err != nil {
 		return err

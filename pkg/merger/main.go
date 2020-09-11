@@ -48,6 +48,7 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 	go func() {
 		defer close(ch)
 		for _, src := range q.SrcObjects {
+			logger.WithField("src", src).Debug("Download raw object")
 			if err := recordService.Load(src, q.Schema, ch); err != nil {
 				logger.WithError(err).WithField("src", src).Fatal("Failed to load records")
 				return
@@ -55,7 +56,6 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 		}
 	}()
 
-	logger.Info("start dumping")
 	mergedFile, err = dumpParquet(ch, newRec)
 	if err != nil {
 		return err

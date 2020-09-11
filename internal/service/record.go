@@ -23,7 +23,7 @@ type RecordService struct {
 
 func NewRecordService(newS3 adaptor.S3ClientFactory, newEncoder adaptor.EncoderFactory, newDecoder adaptor.DecoderFactory) *RecordService {
 	return &RecordService{
-		ObjectSizeLimit: 512 * 1024 * 1024,
+		ObjectSizeLimit: 128 * 1024 * 1024,
 		s3Service:       NewS3Service(newS3),
 		newEncoder:      newEncoder,
 		newDecoder:      newDecoder,
@@ -163,7 +163,6 @@ func (x *dumper) close() error {
 		return err
 	}
 
-	x.current.rawObject.DataSize = x.current.encoder.Size()
 	x.current = nil
 
 	return nil
@@ -248,6 +247,8 @@ func (x *pipeline) close() error {
 	}
 
 	x.wg.Wait()
+	x.rawObject.DataSize = x.encoder.Size()
+	logger.WithField("rawObject", x.rawObject).Debug("Closed pipeline")
 
 	return nil
 }

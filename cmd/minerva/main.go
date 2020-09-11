@@ -17,8 +17,8 @@ func main() {
 		Name:  "minerva",
 		Usage: "CLI utility of minerva",
 		Commands: []*cli.Command{
-			mergeCommand(&args),
 			proxyCommand(&args),
+			dumpCommand(&args),
 		},
 	}
 
