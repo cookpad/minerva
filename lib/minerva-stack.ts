@@ -33,6 +33,7 @@ interface MinervaProperties extends cdk.StackProps {
   readonly sentryEnv?: string;
   readonly logLevel?: string;
   readonly concurrentExecution?: number;
+  readonly disableMerger?: boolean;
 }
 
 export class MinervaStack extends cdk.Stack {
@@ -174,18 +175,20 @@ export class MinervaStack extends cdk.Stack {
       targets: [new eventTargets.LambdaFunction(this.dispatcher)],
     });
 
-    this.merger = new lambda.Function(this, "merger", {
-      runtime: lambda.Runtime.GO_1_X,
-      handler: "merger",
-      code: buildPath,
-      role: lambdaRole,
-      timeout: cdk.Duration.seconds(900),
-      memorySize: 3008,
-      reservedConcurrentExecutions: props.concurrentExecution,
-      events: [new SqsEventSource(this.mergeQueue, { batchSize: 1 })],
-      environment: defaultEnvVars,
-      deadLetterQueue: this.deadLetterQueue,
-    });
+    if (props.disableMerger === undefined || props.disableMerger === false) {
+      this.merger = new lambda.Function(this, "merger", {
+        runtime: lambda.Runtime.GO_1_X,
+        handler: "merger",
+        code: buildPath,
+        role: lambdaRole,
+        timeout: cdk.Duration.seconds(900),
+        memorySize: 3008,
+        reservedConcurrentExecutions: props.concurrentExecution,
+        events: [new SqsEventSource(this.mergeQueue, { batchSize: 1 })],
+        environment: defaultEnvVars,
+        deadLetterQueue: this.deadLetterQueue,
+      });
+    }
 
     this.partitioner = new lambda.Function(this, "partitioner", {
       runtime: lambda.Runtime.GO_1_X,
