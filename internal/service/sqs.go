@@ -80,7 +80,7 @@ func (x *SQSService) ReceiveMessage(url string, timeout int64, msg interface{}) 
 		}
 
 		client := x.newSQS(region)
-		output, err := client.ReceiveMessage(&sqs.ReceiveMessageInput{
+		out, err := client.ReceiveMessage(&sqs.ReceiveMessageInput{
 			QueueUrl:          aws.String(url),
 			VisibilityTimeout: aws.Int64(timeout),
 		})
@@ -88,8 +88,9 @@ func (x *SQSService) ReceiveMessage(url string, timeout int64, msg interface{}) 
 			return nil, errors.Wrap(err, "Failed client.ReceiveMessage")
 		}
 
-		x.queueMap[url] = output
+		x.queueMap[url] = out
 		x.msgIndex = 0
+		output = out
 	}
 
 	if len(output.Messages) <= x.msgIndex {
