@@ -21,6 +21,8 @@ func loopCommand(hdlrArgs *handler.Arguments) *cli.Command {
 			},
 		},
 		Action: func(c *cli.Context) error {
+			configure(hdlrArgs)
+
 			if err := loopHandler(hdlrArgs); err != nil {
 				return err
 			}

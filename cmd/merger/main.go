@@ -10,6 +10,10 @@ import (
 
 var logger = handler.Logger
 
+func configure(args *handler.Arguments) {
+	handler.SetLogLevel(args.LogLevel)
+}
+
 func main() {
 	args := &handler.Arguments{
 		NewS3:  adaptor.NewS3Client,

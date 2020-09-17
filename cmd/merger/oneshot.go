@@ -21,6 +21,8 @@ func oneshotCommand(hdlrArgs *handler.Arguments) *cli.Command {
 			},
 		},
 		Action: func(c *cli.Context) error {
+			configure(hdlrArgs)
+
 			if err := oneshotHandler(hdlrArgs); err != nil {
 				return err
 			}

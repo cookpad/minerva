@@ -55,6 +55,8 @@ func loadCommand(hdlrArgs *handler.Arguments) *cli.Command {
 			},
 		},
 		Action: func(c *cli.Context) error {
+			configure(hdlrArgs)
+
 			if err := loadHandler(hdlrArgs, &args); err != nil {
 				return err
 			}
