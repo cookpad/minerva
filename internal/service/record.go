@@ -23,7 +23,7 @@ type RecordService struct {
 
 func NewRecordService(newS3 adaptor.S3ClientFactory, newEncoder adaptor.EncoderFactory, newDecoder adaptor.DecoderFactory) *RecordService {
 	return &RecordService{
-		ObjectSizeLimit: 200 * 1024 * 1024,
+		ObjectSizeLimit: 512 * 1024 * 1024,
 		s3Service:       NewS3Service(newS3),
 		newEncoder:      newEncoder,
 		newDecoder:      newDecoder,
