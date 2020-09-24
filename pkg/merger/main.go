@@ -129,6 +129,8 @@ func dumpParquet(ch chan *models.RecordQueue, newRec newRecord) (*string, error)
 		if err := fw.Close(); err != nil {
 			logger.WithError(err).Error("Fail to close parquet writer")
 		}
+		fw = nil
+		runtime.GC()
 	}()
 
 	pw, err := writer.NewParquetWriter(fw, newRec(), 1)
@@ -141,6 +143,7 @@ func dumpParquet(ch chan *models.RecordQueue, newRec newRecord) (*string, error)
 		if err := pw.WriteStop(); err != nil {
 			logger.WithError(err).Error("Fail to stop writing parquet file")
 		}
+		pw = nil
 	}()
 
 	pw.RowGroupSize = 128 * 1024 * 1024
