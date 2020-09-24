@@ -43,6 +43,7 @@ func loopHandler(hdlrArgs *handler.Arguments) error {
 		}
 
 		if receipt == nil {
+			logger.Debug("No message. Retry sqsService.ReceiveMessage")
 			timer.sleep()
 			continue
 		}
