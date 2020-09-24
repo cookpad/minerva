@@ -146,10 +146,10 @@ export class MinervaStack extends cdk.Stack {
       code: buildPath,
       role: lambdaRole,
       timeout: composerTimeout,
-      memorySize: 128,
+      memorySize: 256,
       environment: defaultEnvVars,
-      reservedConcurrentExecutions: 1,
-      events: [new SqsEventSource(this.composeQueue, { batchSize: 1 })],
+      reservedConcurrentExecutions: 8,
+      events: [new SqsEventSource(this.composeQueue, { batchSize: 10 })],
       deadLetterQueue: this.deadLetterQueue,
     });
 
