@@ -17,6 +17,7 @@ import {
 const eventTargets = require("@aws-cdk/aws-events-targets");
 import * as events from "@aws-cdk/aws-events";
 import * as path from "path";
+import { defaultCipherList } from "constants";
 
 interface MinervaProperties extends cdk.StackProps {
   // Required properties
@@ -92,6 +93,7 @@ export class MinervaStack extends cdk.Stack {
     });
 
     // SQS
+    this.deadLetterQueue = new sqs.Queue(this, "deadLetterQueue");
     this.indexerQueue = new sqs.Queue(this, "indexerQueue", {
       visibilityTimeout: indexerTimeout,
     });
@@ -99,12 +101,15 @@ export class MinervaStack extends cdk.Stack {
 
     this.mergeQueue = new sqs.Queue(this, "mergeQueue", {
       visibilityTimeout: cdk.Duration.seconds(450),
+      deadLetterQueue: {
+        maxReceiveCount: 5,
+        queue: this.deadLetterQueue,
+      },
     });
     this.partitionQueue = new sqs.Queue(this, "partitionQueue");
     this.composeQueue = new sqs.Queue(this, "composeQueue", {
       visibilityTimeout: composerTimeout,
     });
-    this.deadLetterQueue = new sqs.Queue(this, "deadLetterQueue");
 
     const defaultEnvVars = {
       // From arguments

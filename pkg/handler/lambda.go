@@ -47,6 +47,6 @@ func StartLambda(handler Handler) {
 
 func SetLogLevel(level string) {
 	if level != "" {
-		internal.SetLogLevel(level)
+		internal.SetupLogger(level)
 	}
 }

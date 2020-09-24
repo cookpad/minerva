@@ -50,6 +50,6 @@ func handleRequest(ctx context.Context, event events.SQSEvent) error {
 func main() {
 	logger.SetLevel(logrus.InfoLevel)
 	logger.SetFormatter(&logrus.JSONFormatter{})
-	internal.SetLogLevel(os.Getenv("LOG_LEVEL"))
+	internal.SetupLogger(os.Getenv("LOG_LEVEL"))
 	lambda.Start(handleRequest)
 }

@@ -19,7 +19,7 @@ var logger = internal.Logger
 func main() {
 	logger.SetFormatter(&logrus.JSONFormatter{})
 	logger.SetLevel(logrus.InfoLevel)
-	internal.SetLogLevel(os.Getenv("LOG_LEVEL"))
+	internal.SetupLogger(os.Getenv("LOG_LEVEL"))
 
 	args := api.MinervaHandler{
 		DatabaseName:     os.Getenv("ATHENA_DB_NAME"),

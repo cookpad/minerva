@@ -27,6 +27,8 @@ type MergeOptions struct {
 
 // MergeChunk merges S3 objects to one parquet file
 func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions) error {
+	logger.WithField("queeu", q).Info("Start MergeChunk")
+
 	if opt == nil {
 		opt = &MergeOptions{}
 	}

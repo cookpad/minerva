@@ -14,7 +14,6 @@ import (
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 var logger = handler.Logger
@@ -55,8 +54,7 @@ func handleEvent(args Arguments) error {
 		return err
 	}
 
-	logger.SetFormatter(&logrus.JSONFormatter{})
-	internal.SetLogLevel(args.LogLevel)
+	internal.SetupLogger(args.LogLevel)
 	logger.WithField("event", args.Event).Debug("Start handler")
 
 	for _, sqsRecord := range args.Event.Records {
