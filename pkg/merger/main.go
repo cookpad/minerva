@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"sync"
 
 	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/models"
@@ -15,6 +16,8 @@ import (
 )
 
 var logger = handler.Logger
+
+const s3DownloadConcurrency = 16
 
 // MergeOptions has option values of MergeChunk
 type MergeOptions struct {
@@ -45,16 +48,40 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 	var mergedFile *string
 	var err error
 
+	logger.WithField("len(q.SrcObjects)", len(q.SrcObjects)).Trace("Start downloading")
+	objQueue := make(chan *models.S3Object, len(q.SrcObjects))
+	for _, q := range q.SrcObjects {
+		objQueue <- q
+	}
+	close(objQueue)
+
+	wg := &sync.WaitGroup{}
+
+	wg.Add(1)
 	go func() {
 		defer close(ch)
-		for _, src := range q.SrcObjects {
-			logger.WithField("src", src).Debug("Download raw object")
-			if err := recordService.Load(src, q.Schema, ch); err != nil {
-				logger.WithError(err).WithField("src", src).Fatal("Failed to load records")
-				return
-			}
-		}
+		wg.Wait()
+		logger.Trace("closed data channel")
 	}()
+
+	for i := 0; i < s3DownloadConcurrency; i++ {
+		wg.Add(1)
+
+		go func(idx int) {
+			defer wg.Done()
+
+			for src := range objQueue {
+				logger.WithField("src", src).Debug("Download raw object")
+				if err := recordService.Load(src, q.Schema, ch); err != nil {
+					logger.WithError(err).WithField("src", src).Fatal("Failed to load records")
+					return
+				}
+				logger.WithField("src", src).Trace("Downloaded")
+			}
+			logger.WithField("Thread No", idx).Trace("Exit")
+		}(i)
+	}
+	wg.Done()
 
 	mergedFile, err = dumpParquet(ch, newRec)
 	if err != nil {
