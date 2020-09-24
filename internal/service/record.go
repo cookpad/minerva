@@ -58,6 +58,7 @@ func (x *RecordService) Close() error {
 }
 
 func (x *RecordService) Load(src *models.S3Object, schema models.ParquetSchemaName, ch chan *models.RecordQueue) error {
+	const bufferSize = 512
 	body, err := x.s3Service.AsyncDownload(*src)
 	if err != nil {
 		return errors.Wrap(err, "Failed AsyncDownload")
@@ -65,6 +66,7 @@ func (x *RecordService) Load(src *models.S3Object, schema models.ParquetSchemaNa
 	defer body.Close()
 
 	decoder := x.newDecoder(body)
+	var q *models.RecordQueue
 	for {
 		var record models.Record
 		switch schema {
@@ -77,17 +79,28 @@ func (x *RecordService) Load(src *models.S3Object, schema models.ParquetSchemaNa
 		}
 
 		if err := decoder.Decode(&record); err != nil {
-			if err != io.EOF {
-				return errors.Wrap(err, "Failed to decode record")
+			if err == io.EOF {
+				break
 			}
-			return nil
+			return errors.Wrap(err, "Failed to decode record")
 		}
 
-		q := &models.RecordQueue{}
+		if q == nil {
+			q = &models.RecordQueue{}
+		}
 		q.Records = append(q.Records, record)
 
+		if len(q.Records) >= bufferSize {
+			ch <- q
+			q = nil
+		}
+	}
+
+	if q != nil {
 		ch <- q
 	}
+
+	return nil
 }
 
 func (x *RecordService) RawObjects() []*models.RawObject {
