@@ -73,7 +73,7 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 			defer wg.Done()
 
 			for src := range objQueue {
-				logger.WithField("src", src).Debug("Download raw object")
+				logger.WithField("src", src).Trace("Download raw object")
 				if err := recordService.Load(src, q.Schema, ch); err != nil {
 					logger.WithError(err).WithField("src", src).Fatal("Failed to load records")
 					return

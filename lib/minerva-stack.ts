@@ -43,7 +43,8 @@ export class MinervaStack extends cdk.Stack {
   readonly partitionQueue: sqs.Queue;
   readonly mergeQueue: sqs.Queue;
   readonly composeQueue: sqs.Queue;
-  readonly deadLetterQueue: sqs.Queue;
+  readonly indexerDLQ: sqs.Queue;
+  readonly mergerDLQ: sqs.Queue;
 
   // Lambda functions
   readonly indexer: lambda.Function;
@@ -93,17 +94,22 @@ export class MinervaStack extends cdk.Stack {
     });
 
     // SQS
-    this.deadLetterQueue = new sqs.Queue(this, "deadLetterQueue");
+    this.indexerDLQ = new sqs.Queue(this, "indexerDLQ");
     this.indexerQueue = new sqs.Queue(this, "indexerQueue", {
       visibilityTimeout: indexerTimeout,
+      deadLetterQueue: {
+        maxReceiveCount: 3,
+        queue: this.indexerDLQ,
+      },
     });
     dataTopic.addSubscription(new SqsSubscription(this.indexerQueue));
 
+    this.mergerDLQ = new sqs.Queue(this, "mergerDLQ");
     this.mergeQueue = new sqs.Queue(this, "mergeQueue", {
       visibilityTimeout: cdk.Duration.seconds(450),
       deadLetterQueue: {
-        maxReceiveCount: 5,
-        queue: this.deadLetterQueue,
+        maxReceiveCount: 3,
+        queue: this.mergerDLQ,
       },
     });
     this.partitionQueue = new sqs.Queue(this, "partitionQueue");
@@ -139,7 +145,6 @@ export class MinervaStack extends cdk.Stack {
       memorySize: 2048,
       environment: defaultEnvVars,
       reservedConcurrentExecutions: props.concurrentExecution,
-      deadLetterQueue: this.deadLetterQueue,
     });
     this.indexer.addEventSource(
       new SqsEventSource(this.indexerQueue, { batchSize: 1 })
@@ -155,7 +160,6 @@ export class MinervaStack extends cdk.Stack {
       environment: defaultEnvVars,
       reservedConcurrentExecutions: 8,
       events: [new SqsEventSource(this.composeQueue, { batchSize: 10 })],
-      deadLetterQueue: this.deadLetterQueue,
     });
 
     this.dispatcher = new lambda.Function(this, "dispatcher", {
@@ -173,7 +177,6 @@ export class MinervaStack extends cdk.Stack {
           batchSize: 1,
         }),
       ],
-      deadLetterQueue: this.deadLetterQueue,
     });
     new events.Rule(this, "PeriodicDispatch", {
       schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
@@ -191,7 +194,6 @@ export class MinervaStack extends cdk.Stack {
         reservedConcurrentExecutions: props.concurrentExecution,
         events: [new SqsEventSource(this.mergeQueue, { batchSize: 1 })],
         environment: defaultEnvVars,
-        deadLetterQueue: this.deadLetterQueue,
       });
     }
 
@@ -205,7 +207,6 @@ export class MinervaStack extends cdk.Stack {
       environment: defaultEnvVars,
       reservedConcurrentExecutions: props.concurrentExecution,
       events: [new SqsEventSource(this.partitionQueue, { batchSize: 1 })],
-      deadLetterQueue: this.deadLetterQueue,
     });
 
     const indexDB = new glue.Database(this, "indexDB", {
