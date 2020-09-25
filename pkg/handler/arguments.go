@@ -7,6 +7,7 @@ import (
 	"github.com/m-mizutani/minerva/internal/adaptor"
 	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/internal/service"
+	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 )
 
@@ -20,6 +21,9 @@ type Arguments struct {
 	ChunkRepo  repository.ChunkRepository `json:"-"`
 	NewEncoder adaptor.EncoderFactory     `json:"-"`
 	NewDecoder adaptor.DecoderFactory     `json:"-"`
+
+	// Only required for indexer
+	Reader *rlogs.Reader
 }
 
 // EventRecord is decapslated event data (e.g. Body of SQS event)

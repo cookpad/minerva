@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/m-mizutani/minerva/internal"
+	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -16,7 +17,7 @@ var Logger = internal.Logger
 type Handler func(Arguments) error
 
 // StartLambda initialize AWS Lambda and invokes handler
-func StartLambda(handler Handler) {
+func StartLambda(handler Handler, reader ...*rlogs.Reader) {
 	Logger.SetLevel(logrus.InfoLevel)
 	Logger.SetFormatter(&logrus.JSONFormatter{})
 
@@ -33,6 +34,10 @@ func StartLambda(handler Handler) {
 
 		Logger.WithFields(logrus.Fields{"args": args, "event": event}).Debug("Start handler")
 		args.Event = event
+
+		if len(reader) > 0 {
+			args.Reader = reader[0]
+		}
 
 		if err := handler(args); err != nil {
 			Logger.WithFields(logrus.Fields{"args": args, "event": event}).Error("Failed Handler")
