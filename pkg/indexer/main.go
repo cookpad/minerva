@@ -76,6 +76,10 @@ func handleS3Event(args handler.Arguments, s3Event events.S3Event) error {
 
 // MakeIndex is a process for one S3 object to make index file.
 func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
+	if err := validateArguments(args); err != nil {
+		return errors.Wrap(err, "Invalid indexer arguments")
+	}
+
 	srcObject := models.NewS3ObjectFromRecord(record)
 	sqsService := args.SQSService()
 
@@ -123,6 +127,32 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 		if err := sqsService.SendSQS(&composeQueue, args.ComposeQueueURL); err != nil {
 			return errors.Wrap(err, "Fail to send parition queue")
 		}
+	}
+
+	return nil
+}
+
+func validateArguments(args handler.Arguments) error {
+	if args.S3Region == "" {
+		return errors.New("S3_REGION is not set")
+	}
+	if args.S3Bucket == "" {
+		return errors.New("S3_BUCKET is not set")
+	}
+	if args.S3Prefix == "" {
+		return errors.New("S3_PREFIX is not set")
+	}
+	if args.MetaTableName == "" {
+		return errors.New("META_TABLE_NAME is not set")
+	}
+	if args.PartitionQueueURL == "" {
+		return errors.New("PARTITION_QUEUE_URL is not set")
+	}
+	if args.ComposeQueueURL == "" {
+		return errors.New("COMPOSE_QUEUE_URL is not set")
+	}
+	if args.AwsRegion == "" {
+		return errors.New("AWS_REGION is not set")
 	}
 
 	return nil
