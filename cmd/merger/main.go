@@ -21,8 +21,8 @@ func main() {
 	}
 
 	app := &cli.App{
-		Name:  "indexer",
-		Usage: "Minerva Indexer",
+		Name:  "merger",
+		Usage: "Minerva merger",
 		Flags: []cli.Flag{
 
 			&cli.StringFlag{
