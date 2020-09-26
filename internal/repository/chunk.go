@@ -29,6 +29,7 @@ var (
 
 const (
 	defaultChunkKeyPrefix = "chunk/"
+	mergableChunkLimit    = 256
 )
 
 // ChunkDynamoDB is implementation of ChunkRepository for DynamoDB
@@ -61,7 +62,7 @@ func (x *ChunkDynamoDB) GetMergableChunks(schema string, createdBefore time.Time
 	var chunks []*models.Chunk
 	query := x.table.
 		Get("pk", x.chunkPK(schema)).
-		Filter("? <= 'total_size' OR 'created_at' <= ?", minChunkSize, createdBefore.UTC().Unix())
+		Filter("? <= 'total_size' OR 'created_at' <= ?", minChunkSize, createdBefore.UTC().Unix()).Limit(mergableChunkLimit)
 
 	if err := query.All(&chunks); err != nil {
 		return nil, errors.Wrap(err, "Failed get chunks")
