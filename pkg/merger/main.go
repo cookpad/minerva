@@ -50,9 +50,14 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 	var mergedFile *string
 	var err error
 
-	logger.WithField("len(q.SrcObjects)", len(q.SrcObjects)).Trace("Start downloading")
-	objQueue := make(chan *models.S3Object, len(q.SrcObjects))
-	for _, q := range q.SrcObjects {
+	srcObjects, err := q.SrcObjects.Export()
+	if err != nil {
+		return err
+	}
+
+	logger.WithField("len(srcObjects)", len(srcObjects)).Trace("Start downloading")
+	objQueue := make(chan *models.S3Object, len(srcObjects))
+	for _, q := range srcObjects {
 		objQueue <- q
 	}
 	close(objQueue)
@@ -106,7 +111,7 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 
 	logger.WithField("dst", q.DstObject).Debug("Uploaded merged parquet file")
 	if !opt.DoNotRemoveSrc {
-		if err := s3Service.DeleteS3Objects(q.SrcObjects); err != nil {
+		if err := s3Service.DeleteS3Objects(srcObjects); err != nil {
 			return err
 		}
 	}

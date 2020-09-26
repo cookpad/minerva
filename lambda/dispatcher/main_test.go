@@ -44,18 +44,20 @@ func TestDispatcher(t *testing.T) {
 		var q models.MergeQueue
 		require.NoError(tt, json.Unmarshal([]byte(*sqsClient.Input[0].MessageBody), &q))
 		assert.Equal(tt, models.ParquetSchemaName("index"), q.Schema)
-		assert.Equal(tt, 2, len(q.SrcObjects))
-		assert.Contains(tt, q.SrcObjects, &models.S3Object{
+		srcObjects, err := q.SrcObjects.Export()
+		require.NoError(tt, err)
+		assert.Equal(tt, 2, len(srcObjects))
+		assert.Contains(tt, srcObjects, &models.S3Object{
 			Region: "region1",
 			Bucket: "bucket1",
 			Key:    "key1",
 		})
-		assert.Contains(tt, q.SrcObjects, &models.S3Object{
+		assert.Contains(tt, srcObjects, &models.S3Object{
 			Region: "region2",
 			Bucket: "bucket2",
 			Key:    "key2",
 		})
-		assert.NotContains(tt, q.SrcObjects, &models.S3Object{
+		assert.NotContains(tt, srcObjects, &models.S3Object{
 			Region: "region3",
 			Bucket: "bucket3",
 			Key:    "key3",
@@ -84,13 +86,17 @@ func TestDispatcher(t *testing.T) {
 		var q models.MergeQueue
 		require.NoError(tt, json.Unmarshal([]byte(*sqsClient.Input[0].MessageBody), &q))
 		assert.Equal(tt, models.ParquetSchemaName("index"), q.Schema)
-		assert.Equal(tt, 2, len(q.SrcObjects))
-		assert.Contains(tt, q.SrcObjects, &models.S3Object{
+
+		srcObjects, err := q.SrcObjects.Export()
+		require.NoError(tt, err)
+		assert.Equal(tt, 2, len(srcObjects))
+
+		assert.Contains(tt, srcObjects, &models.S3Object{
 			Region: "region1",
 			Bucket: "bucket1",
 			Key:    "key1",
 		})
-		assert.Contains(tt, q.SrcObjects, &models.S3Object{
+		assert.Contains(tt, srcObjects, &models.S3Object{
 			Region: "region2",
 			Bucket: "bucket2",
 			Key:    "key2",

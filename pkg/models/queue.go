@@ -16,7 +16,7 @@ type ComposeQueue struct {
 type MergeQueue struct {
 	Schema     ParquetSchemaName `json:"schema"`
 	TotalSize  int64             `json:"total_size"`
-	SrcObjects []*S3Object       `json:"src_objects"`
+	SrcObjects *S3Objects        `json:"src_objects"`
 	DstObject  S3Object          `json:"dst_object"`
 }
 

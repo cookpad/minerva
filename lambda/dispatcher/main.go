@@ -77,10 +77,17 @@ func Handler(args handler.Arguments) error {
 
 		s3Key := models.BuildMergedS3ObjectKey(args.S3Prefix, chunk.Schema, chunk.Partition, chunk.ChunkKey)
 		dst := models.NewS3Object(args.S3Region, args.S3Bucket, s3Key)
+
+		srcObjects, err := models.NewS3Objects(src)
+
+		if err != nil {
+			return errors.Wrap(err, "Failed EncodeS3Objects")
+		}
+
 		q := models.MergeQueue{
 			Schema:     models.ParquetSchemaName(chunk.Schema),
 			TotalSize:  chunk.TotalSize,
-			SrcObjects: src,
+			SrcObjects: srcObjects,
 			DstObject:  dst,
 		}
 

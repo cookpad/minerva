@@ -19,40 +19,72 @@ type S3Object struct {
 	Key    string `json:"key"`
 }
 
-func EncodeS3Objects(objects []*S3Object) ([]byte, error) {
+type S3Objects struct {
+	objects []*S3Object `json:"-"`
+	Raw     string      `json:"raw"`
+}
+
+func NewS3Objects(objects []*S3Object) (*S3Objects, error) {
+	s3obj := &S3Objects{}
+	if err := s3obj.Append(objects...); err != nil {
+		return nil, errors.Wrap(err, "Failed to create new S3Objects")
+	}
+	return s3obj, nil
+}
+
+func (x *S3Objects) Append(objects ...*S3Object) error {
+	x.objects = append(x.objects, objects...)
+	raw, err := encodeS3Objects(x.objects)
+	if err != nil {
+		return err
+	}
+	x.Raw = string(raw)
+	return nil
+}
+
+func (x *S3Objects) Export() ([]*S3Object, error) {
+	objects, err := decodeS3Objects([]byte(x.Raw))
+	if err != nil {
+		return nil, err
+	}
+	x.objects = objects
+	return x.objects, nil
+}
+
+func encodeS3Objects(objects []*S3Object) ([]byte, error) {
 	raw, err := json.Marshal(objects)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to marshal []*S3Object")
 	}
 
 	buf := &bytes.Buffer{}
-	gzipWriter := gzip.NewWriter(buf)
-	base64Writer := base64.NewEncoder(base64.RawStdEncoding, gzipWriter)
+	base64Writer := base64.NewEncoder(base64.RawStdEncoding, buf)
+	gzipWriter := gzip.NewWriter(base64Writer)
 
-	if _, err := base64Writer.Write(raw); err != nil {
+	if _, err := gzipWriter.Write(raw); err != nil {
 		return nil, errors.Wrap(err, "Failed to encode []*S3Objects to base64")
 	}
 
-	if err := base64Writer.Close(); err != nil {
-		return nil, errors.Wrap(err, "Failed to close base64 writer for []*S3Objects")
-	}
 	if err := gzipWriter.Close(); err != nil {
 		return nil, errors.Wrap(err, "Failed to close gzip writer for []*S3Objects")
 	}
-
+	if err := base64Writer.Close(); err != nil {
+		return nil, errors.Wrap(err, "Failed to close base64 writer for []*S3Objects")
+	}
 	return buf.Bytes(), nil
 }
 
-func DecodeS3Objects(raw []byte) ([]*S3Object, error) {
+func decodeS3Objects(raw []byte) ([]*S3Object, error) {
 	var objects []*S3Object
+	buf := bytes.NewReader(raw)
+	base64Reader := base64.NewDecoder(base64.RawStdEncoding, buf)
 
-	gzipReader, err := gzip.NewReader(bytes.NewReader(raw))
+	gzipReader, err := gzip.NewReader(base64Reader)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create gzip.Reader for []*S3Object")
 	}
-	base64Reader := base64.NewDecoder(base64.RawStdEncoding, gzipReader)
 
-	decoded, err := ioutil.ReadAll(base64Reader)
+	decoded, err := ioutil.ReadAll(gzipReader)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to read raw data for []*S3Object")
 	}
