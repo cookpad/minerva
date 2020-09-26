@@ -170,11 +170,11 @@ export class MinervaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300),
       memorySize: 128,
       environment: defaultEnvVars,
-      reservedConcurrentExecutions: 1,
+      reservedConcurrentExecutions: 8,
       events: [
         new DynamoEventSource(this.chunkTable, {
           startingPosition: lambda.StartingPosition.LATEST,
-          batchSize: 1,
+          batchSize: 128,
         }),
       ],
     });
