@@ -1,17 +1,67 @@
 package models
 
 import (
-	"errors"
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/klauspost/compress/gzip"
+	"github.com/pkg/errors"
 )
 
 type S3Object struct {
 	Region string `json:"region"`
 	Bucket string `json:"bucket"`
 	Key    string `json:"key"`
+}
+
+func EncodeS3Objects(objects []*S3Object) ([]byte, error) {
+	raw, err := json.Marshal(objects)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to marshal []*S3Object")
+	}
+
+	buf := &bytes.Buffer{}
+	gzipWriter := gzip.NewWriter(buf)
+	base64Writer := base64.NewEncoder(base64.RawStdEncoding, gzipWriter)
+
+	if _, err := base64Writer.Write(raw); err != nil {
+		return nil, errors.Wrap(err, "Failed to encode []*S3Objects to base64")
+	}
+
+	if err := base64Writer.Close(); err != nil {
+		return nil, errors.Wrap(err, "Failed to close base64 writer for []*S3Objects")
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return nil, errors.Wrap(err, "Failed to close gzip writer for []*S3Objects")
+	}
+
+	return buf.Bytes(), nil
+}
+
+func DecodeS3Objects(raw []byte) ([]*S3Object, error) {
+	var objects []*S3Object
+
+	gzipReader, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create gzip.Reader for []*S3Object")
+	}
+	base64Reader := base64.NewDecoder(base64.RawStdEncoding, gzipReader)
+
+	decoded, err := ioutil.ReadAll(base64Reader)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to read raw data for []*S3Object")
+	}
+
+	if err := json.Unmarshal(decoded, &objects); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal []*S3Object")
+	}
+
+	return objects, nil
 }
 
 func NewS3Object(region, bucket, key string) S3Object {
