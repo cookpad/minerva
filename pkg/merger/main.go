@@ -41,6 +41,13 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 	}
 	s3Service := args.S3Service()
 
+	if exists, err := s3Service.HeadObject(q.DstObject); err != nil {
+		return errors.Wrap(err, "Failed to HeadObject")
+	} else if exists {
+		logger.WithField("dst", q.DstObject).Warn("DstObject already exists, skip")
+		return nil
+	}
+
 	newRec, ok := newRecordMap[q.Schema]
 	if !ok {
 		logger.WithField("queue", q).Errorf("Unsupported schema: %s", q.Schema)

@@ -17,6 +17,7 @@ type S3Client interface {
 	GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error)
 	PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error)
 	DeleteObjects(input *s3.DeleteObjectsInput) (*s3.DeleteObjectsOutput, error)
+	HeadObject(input *s3.HeadObjectInput) (*s3.HeadObjectOutput, error)
 	Upload(bucket, key string, body io.Reader, encoding string) error
 }
 
@@ -40,6 +41,10 @@ func (x *awsS3Client) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, 
 
 func (x *awsS3Client) DeleteObjects(input *s3.DeleteObjectsInput) (*s3.DeleteObjectsOutput, error) {
 	return x.client.DeleteObjects(input)
+}
+
+func (x *awsS3Client) HeadObject(input *s3.HeadObjectInput) (*s3.HeadObjectOutput, error) {
+	return x.client.HeadObject(input)
 }
 
 func (x *awsS3Client) Upload(bucket, key string, body io.Reader, encoding string) error {
