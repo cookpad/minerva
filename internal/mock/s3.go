@@ -114,3 +114,16 @@ func (x *S3Client) Upload(bucket, key string, body io.Reader, encoding string) e
 	}
 	return nil
 }
+
+func (x *S3Client) HeadObject(input *s3.HeadObjectInput) (*s3.HeadObjectOutput, error) {
+	bucket, ok := x.data[*input.Bucket]
+	if !ok {
+		return nil, errors.New(s3.ErrCodeNoSuchKey)
+	}
+	_, ok = bucket[*input.Key]
+	if !ok {
+		return nil, errors.New(s3.ErrCodeNoSuchKey)
+	}
+
+	return &s3.HeadObjectOutput{}, nil
+}

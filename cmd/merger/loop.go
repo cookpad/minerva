@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/merger"
 	"github.com/m-mizutani/minerva/pkg/models"
@@ -31,13 +32,22 @@ func loopCommand(hdlrArgs *handler.Arguments) *cli.Command {
 	}
 }
 
-func loopHandler(hdlrArgs *handler.Arguments) error {
-	sqsService := hdlrArgs.SQSService()
-	timer := retryTimer{}
+func loopHandler(args *handler.Arguments) error {
+	for {
+		if err := mergeProc(args); err != nil {
+			logger.WithField("args", args).WithError(err).Error("Failed to merge")
+			internal.HandleError(err)
+			internal.FlushError()
+		}
+	}
+}
 
+func mergeProc(args *handler.Arguments) error {
+	sqsService := args.SQSService()
+	timer := retryTimer{}
 	for {
 		var q models.MergeQueue
-		receipt, err := sqsService.ReceiveMessage(hdlrArgs.MergeQueueURL, 300, &q)
+		receipt, err := sqsService.ReceiveMessage(args.MergeQueueURL, 300, &q)
 		if err != nil {
 			return err
 		}
@@ -47,13 +57,12 @@ func loopHandler(hdlrArgs *handler.Arguments) error {
 			timer.sleep()
 			continue
 		}
-		timer.clear()
 
-		if err := merger.MergeChunk(*hdlrArgs, &q, nil); err != nil {
+		if err := merger.MergeChunk(*args, &q, nil); err != nil {
 			return err
 		}
 
-		if err := sqsService.DeleteMessage(hdlrArgs.MergeQueueURL, *receipt); err != nil {
+		if err := sqsService.DeleteMessage(args.MergeQueueURL, *receipt); err != nil {
 			return err
 		}
 	}

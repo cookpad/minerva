@@ -74,6 +74,25 @@ func (x *S3Service) AsyncDownload(src models.S3Object) (io.ReadCloser, error) {
 	return output.Body, nil
 }
 
+// HeadObject checks object existance. If HeadObject got awserr, return false, nil anyway.
+func (x *S3Service) HeadObject(obj models.S3Object) (bool, error) {
+	input := &s3.HeadObjectInput{
+		Bucket: aws.String(obj.Bucket),
+		Key:    aws.String(obj.Key),
+	}
+	client := x.newS3(obj.Region)
+	_, err := client.HeadObject(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			return false, nil
+		} else {
+			return false, errors.Wrapf(aerr, "Fail to head object in https: %s/%s", obj.Bucket, obj.Key)
+		}
+	}
+
+	return true, nil
+}
+
 // UploadFileToS3 upload a specified local file to S3
 func (x *S3Service) UploadFileToS3(filePath string, dst models.S3Object) error {
 	fd, err := os.Open(filePath)
