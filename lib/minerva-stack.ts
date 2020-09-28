@@ -34,6 +34,7 @@ interface MinervaProperties extends cdk.StackProps {
   readonly sentryEnv?: string;
   readonly logLevel?: string;
   readonly concurrentExecution?: number;
+  readonly disableIndexer?: boolean;
   readonly disableMerger?: boolean;
 }
 
@@ -136,19 +137,21 @@ export class MinervaStack extends cdk.Stack {
     };
 
     // Lambda Functions
-    this.indexer = new lambda.Function(this, "indexer", {
-      runtime: lambda.Runtime.GO_1_X,
-      handler: "indexer",
-      code: lambda.Code.asset("./build"), // indexer should be built in ./build of CWD.
-      role: lambdaRole,
-      timeout: indexerTimeout,
-      memorySize: 2048,
-      environment: defaultEnvVars,
-      reservedConcurrentExecutions: props.concurrentExecution,
-    });
-    this.indexer.addEventSource(
-      new SqsEventSource(this.indexerQueue, { batchSize: 1 })
-    );
+    if (props.disableIndexer === undefined || props.disableIndexer === false) {
+      this.indexer = new lambda.Function(this, "indexer", {
+        runtime: lambda.Runtime.GO_1_X,
+        handler: "indexer",
+        code: lambda.Code.asset("./build"), // indexer should be built in ./build of CWD.
+        role: lambdaRole,
+        timeout: indexerTimeout,
+        memorySize: 2048,
+        environment: defaultEnvVars,
+        reservedConcurrentExecutions: props.concurrentExecution,
+      });
+      this.indexer.addEventSource(
+        new SqsEventSource(this.indexerQueue, { batchSize: 1 })
+      );
+    }
 
     this.composer = new lambda.Function(this, "composer", {
       runtime: lambda.Runtime.GO_1_X,
