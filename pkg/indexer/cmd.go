@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
@@ -76,46 +77,58 @@ func loopCommand(args *handler.Arguments) *cli.Command {
 				return err
 			}
 
-			if err := loopHandler(args, url); err != nil {
-				return err
-			}
+			loopHandler(args, url)
 			return nil
 		},
 	}
 }
 
-func loopHandler(args *handler.Arguments, queueURL string) error {
+func loopHandler(args *handler.Arguments, queueURL string) {
+	for {
+		if err := indexerProc(args, queueURL); err != nil {
+			logger.WithField("args", args).WithError(err).Error("Failed to merge")
+			internal.HandleError(err)
+			internal.FlushError()
+			time.Sleep(time.Second * 10) // Pause 10 seconds to prevent spin loop
+		}
+	}
+}
+
+func indexerProc(args *handler.Arguments, queueURL string) error {
+	var entity events.SNSEntity
 	sqsService := args.SQSService()
 	timer := retryTimer{}
+	var err error
+	var receipt *string
 
 	for {
-		var entity events.SNSEntity
-		receipt, err := sqsService.ReceiveMessage(queueURL, 300, &entity)
+		receipt, err = sqsService.ReceiveMessage(queueURL, 300, &entity)
 		if err != nil {
 			return err
 		}
-
-		if receipt == nil {
-			logger.Debug("No message. Retry sqsService.ReceiveMessage")
-			timer.sleep()
-			continue
-		}
-		timer.clear()
-
-		var s3Event events.S3Event
-		if err := json.Unmarshal([]byte(entity.Message), &s3Event); err != nil {
-			logger.WithField("entity", entity).Error("json.Unmarshal")
-			return errors.Wrap(err, "Failed to parse S3 event")
+		if receipt != nil {
+			break
 		}
 
-		if err := handleS3Event(*args, s3Event); err != nil {
-			return err
-		}
-
-		if err := sqsService.DeleteMessage(queueURL, *receipt); err != nil {
-			return err
-		}
+		timer.sleep()
+		logger.Debug("Retry sqsService.ReceiveMessage")
 	}
+
+	var s3Event events.S3Event
+	if err := json.Unmarshal([]byte(entity.Message), &s3Event); err != nil {
+		logger.WithField("entity", entity).Error("json.Unmarshal")
+		return errors.Wrap(err, "Failed to parse S3 event")
+	}
+
+	if err := handleS3Event(*args, s3Event); err != nil {
+		return err
+	}
+
+	if err := sqsService.DeleteMessage(queueURL, *receipt); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type retryTimer struct {
