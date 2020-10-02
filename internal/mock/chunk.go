@@ -62,7 +62,7 @@ func (x *ChunkMockDB) GetMergableChunks(schema string, createdBefore time.Time, 
 }
 
 // PutChunk saves a new chunk into DB. The chunk must be overwritten by UUID.
-func (x *ChunkMockDB) PutChunk(obj models.S3Object, objSize int64, schema, partition string, created time.Time) error {
+func (x *ChunkMockDB) PutChunk(recordID string, objSize int64, schema, partition string, created time.Time) error {
 	chunkKey := uuid.New().String()
 	pk := "chunk/" + schema
 	sk := partition + "/" + chunkKey
@@ -73,7 +73,7 @@ func (x *ChunkMockDB) PutChunk(obj models.S3Object, objSize int64, schema, parti
 
 		Schema:    schema,
 		Partition: partition,
-		S3Objects: []string{obj.Encode()},
+		RecordIDs: []string{recordID},
 		TotalSize: objSize,
 		CreatedAt: created.Unix(),
 		ChunkKey:  chunkKey,
@@ -91,7 +91,7 @@ func (x *ChunkMockDB) PutChunk(obj models.S3Object, objSize int64, schema, parti
 	return nil
 }
 
-func (x *ChunkMockDB) UpdateChunk(chunk *models.Chunk, obj models.S3Object, objSize, writableSize int64) error {
+func (x *ChunkMockDB) UpdateChunk(chunk *models.Chunk, recordID string, objSize, writableSize int64) error {
 	dataMap, ok := x.Data[chunk.PK]
 	if !ok {
 		return repository.ErrChunkNotWritable
@@ -104,7 +104,7 @@ func (x *ChunkMockDB) UpdateChunk(chunk *models.Chunk, obj models.S3Object, objS
 	// This statement is not in go manner. Because aligning to DynamoDB Filter condition
 	if target.TotalSize < writableSize && !target.Freezed {
 		target.TotalSize += objSize
-		target.S3Objects = append(target.S3Objects, obj.Encode())
+		target.RecordIDs = append(target.RecordIDs, recordID)
 	} else {
 		return repository.ErrChunkNotWritable
 	}

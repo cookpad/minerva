@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/m-mizutani/minerva/internal/mock"
 	"github.com/m-mizutani/minerva/internal/testutil"
 	"github.com/m-mizutani/minerva/pkg/handler"
@@ -45,19 +46,12 @@ func TestComposer(t *testing.T) {
 
 	t.Run("Update chunk", func(tt *testing.T) {
 		now := time.Now().UTC()
+		recordID := uuid.New().String()
 		chunkRepo := mock.NewChunkMockDB()
-		chunkRepo.PutChunk(models.S3Object{
-			Bucket: "test1",
-			Key:    "k1",
-			Region: "ap-northeast-1",
-		}, 120, "index", "dt=1983-04-20", now)
+		chunkRepo.PutChunk(recordID, 120, "index", "dt=1983-04-20", now)
 
 		event := testutil.EncapBySQS(models.ComposeQueue{
-			S3Object: models.S3Object{
-				Bucket: "test2",
-				Key:    "k2",
-				Region: "ap-northeast-1",
-			},
+			RecordID:  recordID,
 			Partition: "dt=1983-04-20",
 			Schema:    "index",
 			Size:      100,
@@ -74,7 +68,7 @@ func TestComposer(t *testing.T) {
 		require.Equal(t, 1, len(chunks))
 		for _, chunk := range chunks {
 			assert.Equal(tt, int64(220), chunk.TotalSize)
-			assert.Equal(tt, 2, len(chunk.S3Objects))
+			assert.Equal(tt, 2, len(chunk.RecordIDs))
 		}
 	})
 }

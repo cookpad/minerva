@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/google/uuid"
 	"github.com/m-mizutani/minerva/internal/adaptor"
 	"github.com/m-mizutani/minerva/internal/mock"
 	"github.com/m-mizutani/minerva/internal/repository"
@@ -24,8 +25,9 @@ func TestDispatcher(t *testing.T) {
 	now := time.Now().UTC()
 
 	t.Run("Dispatch insert event", func(tt *testing.T) {
-		repo := mock.NewChunkMockDB()
-		event := createBaseEvent(repo, service.DefaultChunkChunkMinSize, now)
+		chunk := mock.NewChunkMockDB()
+		meta := mock.NewMetaRepository()
+		event := createBaseEvent(chunk, meta, service.DefaultChunkChunkMinSize, now)
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
 		args := handler.Arguments{
@@ -34,7 +36,8 @@ func TestDispatcher(t *testing.T) {
 			},
 			Event:     event,
 			NewSQS:    func(region string) adaptor.SQSClient { return sqsClient },
-			ChunkRepo: repo,
+			ChunkRepo: chunk,
+			MetaRepo:  meta,
 		}
 
 		require.NoError(tt, dispatcher.Handler(args))
@@ -66,7 +69,8 @@ func TestDispatcher(t *testing.T) {
 
 	t.Run("Dispatch update event", func(tt *testing.T) {
 		repo := mock.NewChunkMockDB()
-		event := createBaseEvent(repo, service.DefaultChunkChunkMinSize, now)
+		meta := mock.NewMetaRepository()
+		event := createBaseEvent(repo, meta, service.DefaultChunkChunkMinSize, now)
 		event.Records[0].EventName = "MODIFY"
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
@@ -77,6 +81,7 @@ func TestDispatcher(t *testing.T) {
 			Event:     event,
 			NewSQS:    func(region string) adaptor.SQSClient { return sqsClient },
 			ChunkRepo: repo,
+			MetaRepo:  meta,
 		}
 
 		require.NoError(tt, dispatcher.Handler(args))
@@ -105,7 +110,9 @@ func TestDispatcher(t *testing.T) {
 
 	t.Run("Ignore remove event", func(tt *testing.T) {
 		repo := mock.NewChunkMockDB()
-		event := createBaseEvent(repo, service.DefaultChunkChunkMinSize, now)
+		meta := mock.NewMetaRepository()
+
+		event := createBaseEvent(repo, meta, service.DefaultChunkChunkMinSize, now)
 		event.Records[0].EventName = "REMOVE"
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
@@ -116,6 +123,7 @@ func TestDispatcher(t *testing.T) {
 			Event:     event,
 			NewSQS:    func(region string) adaptor.SQSClient { return sqsClient },
 			ChunkRepo: repo,
+			MetaRepo:  meta,
 		}
 
 		require.NoError(tt, dispatcher.Handler(args))
@@ -124,7 +132,9 @@ func TestDispatcher(t *testing.T) {
 
 	t.Run("Ignore not exceeded totalSize", func(tt *testing.T) {
 		repo := mock.NewChunkMockDB()
-		event := createBaseEvent(repo, service.DefaultChunkChunkMinSize-1, now)
+		meta := mock.NewMetaRepository()
+
+		event := createBaseEvent(repo, meta, service.DefaultChunkChunkMinSize-1, now)
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
 		args := handler.Arguments{
@@ -134,6 +144,7 @@ func TestDispatcher(t *testing.T) {
 			Event:     event,
 			NewSQS:    func(region string) adaptor.SQSClient { return sqsClient },
 			ChunkRepo: repo,
+			MetaRepo:  meta,
 		}
 
 		require.NoError(tt, dispatcher.Handler(args))
@@ -143,7 +154,17 @@ func TestDispatcher(t *testing.T) {
 	t.Run("Dispatch mergable chunk", func(tt *testing.T) {
 		now := time.Now().UTC()
 		chunkRepo := mock.NewChunkMockDB()
-		chunkRepo.PutChunk(models.NewS3Object("r1", "b1", "k1"), 123, "index", "dt=2020-03-04", now)
+		meta := mock.NewMetaRepository()
+		id3 := uuid.New().String()
+
+		meta.PutRecordObjects([]*repository.MetaRecordObject{
+			{
+				RecordID: id3,
+				S3Object: models.NewS3Object("r1", "b1", "k1"),
+				Schema:   models.ParquetSchemaIndex,
+			},
+		})
+		chunkRepo.PutChunk(id3, 123, "index", "dt=2020-03-04", now)
 		event := events.DynamoDBEvent{}
 
 		sqsClient := mock.NewSQSClient("dummy").(*mock.SQSClient)
@@ -153,6 +174,7 @@ func TestDispatcher(t *testing.T) {
 			},
 			Event:     event,
 			ChunkRepo: chunkRepo,
+			MetaRepo:  meta,
 			NewSQS:    func(region string) adaptor.SQSClient { return sqsClient },
 		}
 
@@ -161,19 +183,37 @@ func TestDispatcher(t *testing.T) {
 	})
 }
 
-func createBaseEvent(repo repository.ChunkRepository, size int64, now time.Time) *events.DynamoDBEvent {
+func createBaseEvent(chunkRepo repository.ChunkRepository, metaRepo repository.MetaRepository, size int64, now time.Time) *events.DynamoDBEvent {
 	ptn := "dt=2030-01-02"
 
-	if err := repo.PutChunk(models.NewS3Object("region1", "bucket1", "key1"), size-1, "index", ptn, now); err != nil {
+	id1, id2 := uuid.New().String(), uuid.New().String()
+	recordObjects := []*repository.MetaRecordObject{
+		{
+			RecordID: id1,
+			S3Object: models.NewS3Object("region1", "bucket1", "key1"),
+			Schema:   models.ParquetSchemaIndex,
+		},
+		{
+			RecordID: id2,
+			S3Object: models.NewS3Object("region2", "bucket2", "key2"),
+			Schema:   models.ParquetSchemaIndex,
+		},
+	}
+
+	if err := metaRepo.PutRecordObjects(recordObjects); err != nil {
+		log.Fatal("Failed to put record objects")
+	}
+
+	if err := chunkRepo.PutChunk(id1, size-1, "index", ptn, now); err != nil {
 		log.Fatal("Failed to put chunk", err)
 	}
 
-	chunks, err := repo.GetWritableChunks("index", ptn, service.DefaultChunkChunkMinSize*10)
+	chunks, err := chunkRepo.GetWritableChunks("index", ptn, service.DefaultChunkChunkMinSize*10)
 	if err != nil {
 		log.Fatal("Failed to get chunk", err)
 	}
 
-	if err := repo.UpdateChunk(chunks[0], models.NewS3Object("region2", "bucket2", "key2"), 1, service.DefaultChunkChunkMinSize*10); err != nil {
+	if err := chunkRepo.UpdateChunk(chunks[0], id2, 1, service.DefaultChunkChunkMinSize*10); err != nil {
 		log.Fatal("Failed to update chunk", err)
 	}
 
@@ -186,7 +226,7 @@ func createBaseEvent(repo repository.ChunkRepository, size int64, now time.Time)
 						"pk":         events.NewStringAttribute(chunks[0].PK),
 						"sk":         events.NewStringAttribute(chunks[0].SK),
 						"schema":     events.NewStringAttribute("index"),
-						"s3_objects": events.NewStringSetAttribute([]string{"bucket1@region1:key1", "bucket2@region2:key2"}),
+						"record_ids": events.NewStringSetAttribute([]string{id1, id2}),
 						"total_size": events.NewNumberAttribute(fmt.Sprintf("%d", size)),
 						"created_at": events.NewNumberAttribute(fmt.Sprintf("%d", chunks[0].CreatedAt)),
 						"partition":  events.NewStringAttribute(ptn),

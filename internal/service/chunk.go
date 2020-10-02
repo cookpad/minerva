@@ -57,13 +57,13 @@ func (x *ChunkService) GetMergableChunks(schema string, now time.Time) ([]*model
 	return x.repo.GetMergableChunks(schema, now.Add(-x.args.FreezedAfter), x.args.ChunkMinSize)
 }
 
-func (x *ChunkService) PutChunk(obj models.S3Object, size int64, schema, partition string, now time.Time) error {
-	return x.repo.PutChunk(obj, size, schema, partition, now)
+func (x *ChunkService) PutChunk(recordID string, size int64, schema, partition string, now time.Time) error {
+	return x.repo.PutChunk(recordID, size, schema, partition, now)
 }
 
-func (x *ChunkService) UpdateChunk(chunk *models.Chunk, obj models.S3Object, objSize int64) error {
+func (x *ChunkService) UpdateChunk(chunk *models.Chunk, recordID string, objSize int64) error {
 	writableTotalSize := minInt64(x.args.ChunkMinSize, x.args.ChunkMaxSize-objSize)
-	return x.repo.UpdateChunk(chunk, obj, objSize, writableTotalSize)
+	return x.repo.UpdateChunk(chunk, recordID, objSize, writableTotalSize)
 }
 
 func (x *ChunkService) FreezeChunk(chunk *models.Chunk) (*models.Chunk, error) {

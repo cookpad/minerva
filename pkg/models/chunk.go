@@ -7,7 +7,7 @@ import (
 
 type Chunk struct {
 	Schema    string   `dynamo:"schema"`
-	S3Objects []string `dynamo:"s3_objects,set"`
+	RecordIDs []string `dynamo:"record_ids,set"`
 	TotalSize int64    `dynamo:"total_size"`
 	Partition string   `dynamo:"partition"`
 	CreatedAt int64    `dynamo:"created_at"`
@@ -17,20 +17,6 @@ type Chunk struct {
 	// For DynamoDB
 	PK string `dynamo:"pk"`
 	SK string `dynamo:"sk"`
-}
-
-func (x *Chunk) ToS3ObjectSlice() ([]*S3Object, error) {
-	var output []*S3Object
-	for _, encObj := range x.S3Objects {
-		obj, err := DecodeS3Object(encObj)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed DecodeS3Object")
-		}
-
-		output = append(output, obj)
-	}
-
-	return output, nil
 }
 
 // NewChunkFromDynamoEvent builds Chunk by DynamoDBAttributeValue
@@ -43,8 +29,8 @@ func NewChunkFromDynamoEvent(image map[string]events.DynamoDBAttributeValue) (*C
 		return nil, errors.New("Failed to get schema from DynamoRecord")
 	}
 
-	if v, ok := image["s3_objects"]; ok {
-		chunk.S3Objects = v.StringSet()
+	if v, ok := image["record_ids"]; ok {
+		chunk.RecordIDs = v.StringSet()
 	} else {
 		return nil, errors.New("Failed to get s3_objects from DynamoRecord")
 	}

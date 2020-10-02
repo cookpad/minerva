@@ -16,8 +16,8 @@ import (
 type ChunkRepository interface {
 	GetWritableChunks(schema, partition string, writableTotalSize int64) ([]*models.Chunk, error)
 	GetMergableChunks(schema string, createdBefore time.Time, minChunkSize int64) ([]*models.Chunk, error)
-	PutChunk(obj models.S3Object, objSize int64, schema, partition string, created time.Time) error
-	UpdateChunk(chunk *models.Chunk, obj models.S3Object, objSize, writableSize int64) error
+	PutChunk(recordID string, objSize int64, schema, partition string, created time.Time) error
+	UpdateChunk(chunk *models.Chunk, recordID string, objSize, writableSize int64) error
 	FreezeChunk(chunk *models.Chunk) (*models.Chunk, error)
 	DeleteChunk(chunk *models.Chunk) (*models.Chunk, error)
 }
@@ -86,7 +86,7 @@ func (x *ChunkDynamoDB) GetWritableChunks(schema, partition string, writableTota
 	return chunks, nil
 }
 
-func (x *ChunkDynamoDB) PutChunk(obj models.S3Object, size int64, schema, partition string, created time.Time) error {
+func (x *ChunkDynamoDB) PutChunk(recordID string, size int64, schema, partition string, created time.Time) error {
 	chunkKey := uuid.New().String()
 	chunk := &models.Chunk{
 		PK: x.chunkPK(schema),
@@ -94,7 +94,7 @@ func (x *ChunkDynamoDB) PutChunk(obj models.S3Object, size int64, schema, partit
 
 		Schema:    schema,
 		Partition: partition,
-		S3Objects: []string{obj.Encode()},
+		RecordIDs: []string{recordID},
 		TotalSize: size,
 		CreatedAt: created.Unix(),
 		ChunkKey:  chunkKey,
@@ -108,11 +108,11 @@ func (x *ChunkDynamoDB) PutChunk(obj models.S3Object, size int64, schema, partit
 	return nil
 }
 
-func (x *ChunkDynamoDB) UpdateChunk(chunk *models.Chunk, obj models.S3Object, objSize, writableSize int64) error {
+func (x *ChunkDynamoDB) UpdateChunk(chunk *models.Chunk, recordID string, objSize, writableSize int64) error {
 	query := x.table.
 		Update("pk", chunk.PK).
 		Range("sk", chunk.SK).
-		AddStringsToSet("s3_objects", obj.Encode()).
+		AddStringsToSet("record_ids", recordID).
 		Add("total_size", objSize).
 		If("total_size < ? AND 'freezed' = ?", writableSize, false)
 

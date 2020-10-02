@@ -48,7 +48,7 @@ func composeChunk(args handler.Arguments, q *models.ComposeQueue) error {
 	}
 
 	for _, chunk := range chunks {
-		err := chunkService.UpdateChunk(chunk, q.S3Object, q.Size)
+		err := chunkService.UpdateChunk(chunk, q.RecordID, q.Size)
 		if err != nil {
 			if err == repository.ErrChunkNotWritable {
 				continue
@@ -61,7 +61,7 @@ func composeChunk(args handler.Arguments, q *models.ComposeQueue) error {
 	}
 
 	// No writable chunk OR all chunk are not writable already.
-	if err := chunkService.PutChunk(q.S3Object, q.Size, q.Schema, q.Partition, now); err != nil {
+	if err := chunkService.PutChunk(q.RecordID, q.Size, q.Schema, q.Partition, now); err != nil {
 		return errors.Wrap(err, "Failed PutChunk")
 	}
 
