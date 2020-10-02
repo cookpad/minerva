@@ -6,6 +6,7 @@ import (
 
 // ComposeQueue is sent by indexer and received by composer
 type ComposeQueue struct {
+	RecordID  string   `json:"record_id"`
 	S3Object  S3Object `json:"s3_object"`
 	Size      int64    `json:"size"`
 	Schema    string   `json:"schema"`

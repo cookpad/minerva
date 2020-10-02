@@ -1,15 +1,6 @@
 package repository_test
 
-import (
-	"os"
-	"testing"
-
-	"github.com/google/uuid"
-	"github.com/m-mizutani/minerva/internal/repository"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
+/*
 func TestObjectID(t *testing.T) {
 	region := os.Getenv("MINERVA_TEST_REGION")
 	table := os.Getenv("MINERVA_TEST_TABLE")
@@ -53,3 +44,5 @@ func TestPartition(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, has)
 }
+
+*/

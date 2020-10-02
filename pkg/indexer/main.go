@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -83,8 +84,8 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 	srcObject := models.NewS3ObjectFromRecord(record)
 	sqsService := args.SQSService()
 
-	meta := repository.NewMetaDynamoDB(args.AwsRegion, args.MetaTableName)
-	objectID, err := meta.GetObjecID(srcObject.Bucket, srcObject.Key)
+	meta := args.MetaService()
+	objectID, err := meta.GetObjectID(srcObject.Bucket, srcObject.Key)
 	if err != nil {
 		return errors.Wrap(err, "Failed GetObjectID")
 	}
@@ -106,7 +107,10 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 		return err
 	}
 
-	for _, obj := range recordService.RawObjects() {
+	var records []*repository.MetaRecordObject
+	for seq, obj := range recordService.RawObjects() {
+		recordID := fmt.Sprintf("%d/%d", objectID, seq)
+
 		partQueue := models.PartitionQueue{
 			Location:  obj.PartitionPath(),
 			TableName: obj.TableName(),
@@ -118,6 +122,7 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 		}
 
 		composeQueue := models.ComposeQueue{
+			RecordID:  recordID,
 			S3Object:  *obj.Object(),
 			Size:      obj.DataSize,
 			Schema:    obj.Schema(),
@@ -127,6 +132,16 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 		if err := sqsService.SendSQS(&composeQueue, args.ComposeQueueURL); err != nil {
 			return errors.Wrap(err, "Fail to send parition queue")
 		}
+
+		records = append(records, &repository.MetaRecordObject{
+			RecordID: recordID,
+			S3Object: *obj.Object(),
+			Schema:   models.ParquetSchemaName(obj.Schema()),
+		})
+	}
+
+	if err := meta.PutObjects(records); err != nil {
+		return errors.Wrap(err, "Failed to put record objects")
 	}
 
 	return nil

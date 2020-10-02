@@ -19,6 +19,7 @@ type Arguments struct {
 	NewS3      adaptor.S3ClientFactory    `json:"-"`
 	NewSQS     adaptor.SQSClientFactory   `json:"-"`
 	ChunkRepo  repository.ChunkRepository `json:"-"`
+	MetaRepo   repository.MetaRepository  `json:"-"`
 	NewEncoder adaptor.EncoderFactory     `json:"-"`
 	NewDecoder adaptor.DecoderFactory     `json:"-"`
 
@@ -95,6 +96,14 @@ func (x *Arguments) SQSService() *service.SQSService {
 // RecordService provides encode/decode logic and S3 access for normalized log data
 func (x *Arguments) RecordService() *service.RecordService {
 	return service.NewRecordService(x.newS3(), x.newEncoder(), x.newDecoder())
+}
+
+func (x *Arguments) MetaService() *service.MetaService {
+	if x.MetaRepo != nil {
+		return service.NewMetaService(x.MetaRepo)
+	}
+	repo := repository.NewMetaDynamoDB(x.AwsRegion, x.MetaTableName)
+	return service.NewMetaService(repo)
 }
 
 func (x *Arguments) newS3() adaptor.S3ClientFactory {

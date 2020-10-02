@@ -14,9 +14,9 @@ import (
 )
 
 type S3Object struct {
-	Region string `json:"region"`
-	Bucket string `json:"bucket"`
-	Key    string `json:"key"`
+	Region string `json:"region" dynamo:"s3_region"`
+	Bucket string `json:"bucket" dynamo:"s3_bucket"`
+	Key    string `json:"key" dynamo:"s3_key"`
 }
 
 type S3Objects struct {
