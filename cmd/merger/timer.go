@@ -15,9 +15,9 @@ func (x *retryTimer) sleep() {
 }
 
 func (x *retryTimer) calcWaitTime() time.Duration {
-	wait := math.Pow(2.0, float64(x.retryCount)) / 8
-	if wait > 10 {
-		wait = 10
+	wait := math.Pow(2.0, float64(x.retryCount))/64 + 0.5
+	if wait > 2 {
+		wait = 2
 	}
 	mSec := time.Millisecond * time.Duration(wait*1000)
 	x.retryCount++
