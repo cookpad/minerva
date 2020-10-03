@@ -107,8 +107,22 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 		return err
 	}
 
+	rawObjects := recordService.RawObjects()
 	var records []*repository.MetaRecordObject
-	for seq, obj := range recordService.RawObjects() {
+	for seq, obj := range rawObjects {
+		recordID := fmt.Sprintf("%d/%d", objectID, seq)
+
+		records = append(records, &repository.MetaRecordObject{
+			RecordID: recordID,
+			S3Object: *obj.Object(),
+			Schema:   models.ParquetSchemaName(obj.Schema()),
+		})
+	}
+	if err := meta.PutObjects(records); err != nil {
+		return errors.Wrap(err, "Failed to put record objects")
+	}
+
+	for seq, obj := range rawObjects {
 		recordID := fmt.Sprintf("%d/%d", objectID, seq)
 
 		partQueue := models.PartitionQueue{
@@ -132,16 +146,6 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 		if err := sqsService.SendSQS(&composeQueue, args.ComposeQueueURL); err != nil {
 			return errors.Wrap(err, "Fail to send parition queue")
 		}
-
-		records = append(records, &repository.MetaRecordObject{
-			RecordID: recordID,
-			S3Object: *obj.Object(),
-			Schema:   models.ParquetSchemaName(obj.Schema()),
-		})
-	}
-
-	if err := meta.PutObjects(records); err != nil {
-		return errors.Wrap(err, "Failed to put record objects")
 	}
 
 	return nil
