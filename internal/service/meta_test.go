@@ -10,6 +10,7 @@ import (
 	"github.com/m-mizutani/minerva/internal/mock"
 	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/internal/service"
+	"github.com/m-mizutani/minerva/internal/util"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,23 @@ import (
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+}
+
+type testTimer struct{}
+
+func newTestTimer(_ int) util.RetryTimer { return &testTimer{} }
+func (x *testTimer) Run(callback util.RetryTimerCallback) error {
+	// Loop only one time
+	for i := 0; i < 1; i++ {
+		exit, err := callback(i)
+		if err != nil {
+			return err
+		}
+		if exit {
+			return nil
+		}
+	}
+	return util.ErrRetryLimitExceeded
 }
 
 func TestMetaDynamoDB(t *testing.T) {
@@ -28,13 +46,13 @@ func TestMetaDynamoDB(t *testing.T) {
 	}
 
 	repo := repository.NewMetaDynamoDB(region, table)
-	svc := service.NewMetaService(repo)
+	svc := service.NewMetaService(repo, newTestTimer)
 	testMetaService(t, svc)
 }
 
 func TestMetaMock(t *testing.T) {
 	repo := mock.NewMetaRepository()
-	svc := service.NewMetaService(repo)
+	svc := service.NewMetaService(repo, newTestTimer)
 	testMetaService(t, svc)
 }
 
@@ -121,7 +139,7 @@ func testMetaObjectPathSet(t *testing.T, svc *service.MetaService) {
 		assert.Contains(tt, results1, &items[2].S3Object)
 		assert.NotContains(tt, results1, &items[1].S3Object)
 
-		results2, err := svc.GetObjects([]string{id1, id2}, models.ParquetSchemaMessage)
+		results2, err := svc.GetObjects([]string{id1}, models.ParquetSchemaMessage)
 		require.NoError(tt, err)
 		require.Equal(tt, 1, len(results2))
 		assert.NotContains(tt, results2, &items[0].S3Object)
@@ -167,6 +185,30 @@ func testMetaObjectPathSet(t *testing.T, svc *service.MetaService) {
 		results1, err := svc.GetObjects([]string{id1}, models.ParquetSchemaIndex)
 		require.NoError(tt, err)
 		require.Equal(tt, 1, len(results1))
+	})
+
+	t.Run("Not enough items", func(tt *testing.T) {
+		prefix := uuid.New().String()
+		id1 := uuid.New().String()
+		id2 := uuid.New().String()
+		items := []*repository.MetaRecordObject{
+			{
+				RecordID: id1,
+				Schema:   models.ParquetSchemaIndex,
+				S3Object: models.S3Object{
+					Bucket: "blue",
+					Region: "ap-northeast-1",
+					Key:    prefix + "/obj1",
+				},
+			},
+		}
+
+		err := svc.PutObjects(items)
+		require.NoError(tt, err)
+
+		result, err := svc.GetObjects([]string{id1, id2}, models.ParquetSchemaIndex)
+		require.Error(tt, err)
+		assert.Nil(tt, result)
 	})
 }
 

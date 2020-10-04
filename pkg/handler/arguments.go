@@ -7,6 +7,7 @@ import (
 	"github.com/m-mizutani/minerva/internal/adaptor"
 	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/internal/service"
+	"github.com/m-mizutani/minerva/internal/util"
 	"github.com/m-mizutani/rlogs"
 	"github.com/pkg/errors"
 )
@@ -99,11 +100,10 @@ func (x *Arguments) RecordService() *service.RecordService {
 }
 
 func (x *Arguments) MetaService() *service.MetaService {
-	if x.MetaRepo != nil {
-		return service.NewMetaService(x.MetaRepo)
+	if x.MetaRepo == nil {
+		x.MetaRepo = repository.NewMetaDynamoDB(x.AwsRegion, x.MetaTableName)
 	}
-	repo := repository.NewMetaDynamoDB(x.AwsRegion, x.MetaTableName)
-	return service.NewMetaService(repo)
+	return service.NewMetaService(x.MetaRepo, util.NewExpRetryTimer)
 }
 
 func (x *Arguments) newS3() adaptor.S3ClientFactory {

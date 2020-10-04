@@ -1,24 +1,33 @@
 package service
 
 import (
+	"github.com/guregu/dynamo"
 	"github.com/m-mizutani/minerva/internal/repository"
+	"github.com/m-mizutani/minerva/internal/util"
 	"github.com/m-mizutani/minerva/pkg/models"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
+
+const getObjectsRetryLimit = 10
 
 // MetaService is accessor of MetaRepository
 type MetaService struct {
 	repo              repository.MetaRepository
+	newRetryTimer     util.RetryTimerFactory
 	cacheObjectID     map[string]int64
 	cachePartitionKey map[string]bool
 }
 
 // NewMetaService is constructor of MetaService
-func NewMetaService(repo repository.MetaRepository) *MetaService {
-	return &MetaService{
+func NewMetaService(repo repository.MetaRepository, newTimer util.RetryTimerFactory) *MetaService {
+	svc := &MetaService{
 		repo:              repo,
+		newRetryTimer:     newTimer,
 		cacheObjectID:     make(map[string]int64),
 		cachePartitionKey: make(map[string]bool),
 	}
+	return svc
 }
 
 // GetObjectID provides objectID that is unique ID for S3 object
@@ -44,9 +53,26 @@ func (x *MetaService) PutObjects(items []*repository.MetaRecordObject) error {
 
 //GetObjects retrieves set of MetaRecordObject and converts them to []*models.S3Object
 func (x *MetaService) GetObjects(recordIDs []string, schema models.ParquetSchemaName) ([]*models.S3Object, error) {
-	items, err := x.repo.GetRecordObjects(recordIDs, schema)
+	var items []*repository.MetaRecordObject
+
+	timer := x.newRetryTimer(getObjectsRetryLimit)
+	err := timer.Run(func(i int) (bool, error) {
+		results, err := x.repo.GetRecordObjects(recordIDs, schema)
+		if err != nil && err != dynamo.ErrNotFound {
+			return false, err
+		}
+		if len(results) == len(recordIDs) {
+			items = results
+			return true, nil
+		}
+		logger.WithFields(logrus.Fields{
+			"recordIDs": recordIDs,
+			"count":     i,
+		}).Warn("Retry to get all records from repository")
+		return false, nil
+	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to GetRecordObjects")
 	}
 
 	var objects []*models.S3Object
