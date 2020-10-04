@@ -5,8 +5,6 @@ import (
 
 	"github.com/m-mizutani/minerva/internal"
 	"github.com/m-mizutani/minerva/pkg/handler"
-	"github.com/m-mizutani/minerva/pkg/merger"
-	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/urfave/cli/v2"
 )
 
@@ -40,35 +38,4 @@ func loopHandler(args *handler.Arguments) {
 			time.Sleep(time.Second * 10) // Pause 10 seconds to prevent spin loop
 		}
 	}
-}
-
-func mergeProc(args *handler.Arguments) error {
-	sqsService := args.SQSService()
-	timer := retryTimer{}
-	var q models.MergeQueue
-	var err error
-	var receipt *string
-
-	for receipt == nil {
-		receipt, err = sqsService.ReceiveMessage(args.MergeQueueURL, 300, &q)
-		if err != nil {
-			return err
-		}
-		if receipt != nil {
-			break
-		}
-
-		timer.sleep()
-		logger.Debug("Retry sqsService.ReceiveMessage")
-	}
-
-	if err := merger.MergeChunk(*args, &q, nil); err != nil {
-		return err
-	}
-
-	if err := sqsService.DeleteMessage(args.MergeQueueURL, *receipt); err != nil {
-		return err
-	}
-
-	return nil
 }

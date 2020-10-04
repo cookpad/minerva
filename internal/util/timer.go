@@ -31,7 +31,7 @@ func NewExpRetryTimer(limit int) RetryTimer {
 }
 
 func (x *expRetryTimer) Run(callback RetryTimerCallback) error {
-	for i := 0; i < x.limit; i++ {
+	for i := 0; i < x.limit || 0 == x.limit; i++ {
 		exit, err := callback(i)
 		if err != nil {
 			return err
