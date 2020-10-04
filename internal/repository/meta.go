@@ -106,6 +106,9 @@ func (x *MetaDynamoDB) GetRecordObjects(recordIDs []string, schema models.Parque
 	}
 
 	if err := x.table.Batch("pk", "sk").Get(keys...).All(&results); err != nil {
+		if err == dynamo.ErrNotFound {
+			return nil, err
+		}
 		return nil, errors.Wrap(err, "Failed to batch get S3 object path")
 	}
 

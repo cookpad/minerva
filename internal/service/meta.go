@@ -67,6 +67,8 @@ func (x *MetaService) GetObjects(recordIDs []string, schema models.ParquetSchema
 		}
 		logger.WithFields(logrus.Fields{
 			"recordIDs": recordIDs,
+			"results":   results,
+			"error":     err,
 			"count":     i,
 		}).Warn("Retry to get all records from repository")
 		return false, nil
