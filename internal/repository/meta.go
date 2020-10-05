@@ -78,10 +78,12 @@ func (x *MetaDynamoDB) GetObjecID(s3path string) (int64, error) {
 
 // PutRecordObjects puts set of S3 path of record file to DynamoDB
 func (x *MetaDynamoDB) PutRecordObjects(records []*MetaRecordObject) error {
+	now := time.Now().UTC()
 	var items []interface{}
 	for _, item := range records {
 		item.PKey = item.HashKey().(string)
 		item.SKey = item.RangeKey().(string)
+		item.ExpiresAt = now.Add(time.Hour * 24 * 30).Unix()
 		items = append(items, item)
 	}
 
