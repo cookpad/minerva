@@ -46,6 +46,7 @@ export class MinervaStack extends cdk.Stack {
   readonly composeQueue: sqs.Queue;
   readonly indexerDLQ: sqs.Queue;
   readonly mergerDLQ: sqs.Queue;
+  readonly lambdaDLQ: sqs.Queue;
 
   // Lambda functions
   readonly indexer: lambda.Function;
@@ -95,6 +96,8 @@ export class MinervaStack extends cdk.Stack {
     });
 
     // SQS
+    this.lambdaDLQ = new sqs.Queue(this, "lambdaDLQ");
+
     this.indexerDLQ = new sqs.Queue(this, "indexerDLQ");
     this.indexerQueue = new sqs.Queue(this, "indexerQueue", {
       visibilityTimeout: indexerTimeout,
@@ -174,6 +177,7 @@ export class MinervaStack extends cdk.Stack {
       memorySize: 128,
       environment: defaultEnvVars,
       reservedConcurrentExecutions: 8,
+      deadLetterQueue: this.lambdaDLQ,
       events: [
         new DynamoEventSource(this.chunkTable, {
           startingPosition: lambda.StartingPosition.LATEST,
