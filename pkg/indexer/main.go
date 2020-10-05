@@ -121,6 +121,7 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 	if err := meta.PutObjects(records); err != nil {
 		return errors.Wrap(err, "Failed to put record objects")
 	}
+	logger.WithField("records", records).Debug("Done PutRecordObject")
 
 	for seq, obj := range rawObjects {
 		recordID := fmt.Sprintf("%d/%d", objectID, seq)
