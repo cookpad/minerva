@@ -13,6 +13,7 @@ import (
 	"github.com/m-mizutani/minerva/internal/mock"
 	"github.com/m-mizutani/minerva/internal/repository"
 	"github.com/m-mizutani/minerva/internal/service"
+	"github.com/m-mizutani/minerva/internal/util"
 	"github.com/m-mizutani/minerva/pkg/handler"
 	"github.com/m-mizutani/minerva/pkg/models"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,10 @@ func TestDispatcher(t *testing.T) {
 		var q models.MergeQueue
 		require.NoError(tt, json.Unmarshal([]byte(*sqsClient.Input[0].MessageBody), &q))
 		assert.Equal(tt, models.ParquetSchemaName("index"), q.Schema)
-		srcObjects, err := q.SrcObjects.Export()
+
+		metaSvc := service.NewMetaService(meta, util.NewExpRetryTimer)
+		srcObjects, err := metaSvc.GetObjects(q.RecordIDs, q.Schema)
+
 		require.NoError(tt, err)
 		assert.Equal(tt, 2, len(srcObjects))
 		assert.Contains(tt, srcObjects, &models.S3Object{
@@ -92,7 +96,8 @@ func TestDispatcher(t *testing.T) {
 		require.NoError(tt, json.Unmarshal([]byte(*sqsClient.Input[0].MessageBody), &q))
 		assert.Equal(tt, models.ParquetSchemaName("index"), q.Schema)
 
-		srcObjects, err := q.SrcObjects.Export()
+		metaSvc := service.NewMetaService(meta, util.NewExpRetryTimer)
+		srcObjects, err := metaSvc.GetObjects(q.RecordIDs, q.Schema)
 		require.NoError(tt, err)
 		assert.Equal(tt, 2, len(srcObjects))
 

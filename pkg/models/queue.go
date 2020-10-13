@@ -15,10 +15,10 @@ type ComposeQueue struct {
 
 // MergeQueue specify src object locations to be merged and destination object location.
 type MergeQueue struct {
-	Schema     ParquetSchemaName `json:"schema"`
-	TotalSize  int64             `json:"total_size"`
-	SrcObjects *S3Objects        `json:"src_objects"`
-	DstObject  S3Object          `json:"dst_object"`
+	Schema    ParquetSchemaName `json:"schema"`
+	TotalSize int64             `json:"total_size"`
+	RecordIDs []string          `json:"record_ids"`
+	DstObject S3Object          `json:"dst_object"`
 }
 
 // PartitionQueue is arguments of partitioner to add a new partition

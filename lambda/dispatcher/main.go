@@ -25,7 +25,6 @@ func Handler(args handler.Arguments) error {
 	now := time.Now().UTC()
 	chunkService := args.ChunkService()
 	sqsService := args.SQSService()
-	metaService := args.MetaService()
 
 	var chunks []*models.Chunk
 	if len(event.Records) > 0 {
@@ -71,7 +70,6 @@ func Handler(args handler.Arguments) error {
 
 		logger.WithField("chunk", chunk).Info("composing chunk")
 
-		objects, err := metaService.GetObjects(chunk.RecordIDs, models.ParquetSchemaName(chunk.Schema))
 		if err != nil {
 			return errors.Wrap(err, "Failed to get record objects")
 		}
@@ -79,17 +77,15 @@ func Handler(args handler.Arguments) error {
 		s3Key := models.BuildMergedS3ObjectKey(args.S3Prefix, chunk.Schema, chunk.Partition, chunk.ChunkKey)
 		dst := models.NewS3Object(args.S3Region, args.S3Bucket, s3Key)
 
-		srcObjects, err := models.NewS3Objects(objects)
-
 		if err != nil {
 			return errors.Wrap(err, "Failed EncodeS3Objects")
 		}
 
 		q := models.MergeQueue{
-			Schema:     models.ParquetSchemaName(chunk.Schema),
-			TotalSize:  chunk.TotalSize,
-			SrcObjects: srcObjects,
-			DstObject:  dst,
+			Schema:    models.ParquetSchemaName(chunk.Schema),
+			TotalSize: chunk.TotalSize,
+			RecordIDs: chunk.RecordIDs,
+			DstObject: dst,
 		}
 
 		if err := sqsService.SendSQS(q, args.MergeQueueURL); err != nil {

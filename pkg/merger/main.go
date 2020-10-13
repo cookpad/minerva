@@ -34,6 +34,7 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 	}
 
 	recordService := args.RecordService()
+
 	ch := make(chan *models.RecordQueue)
 	newRecordMap := map[models.ParquetSchemaName]newRecord{
 		models.ParquetSchemaIndex:   newIndexRecord,
@@ -55,9 +56,9 @@ func MergeChunk(args handler.Arguments, q *models.MergeQueue, opt *MergeOptions)
 	}
 
 	var mergedFile *string
-	var err error
 
-	srcObjects, err := q.SrcObjects.Export()
+	metaService := args.MetaService()
+	srcObjects, err := metaService.GetObjects(q.RecordIDs, models.ParquetSchemaName(q.Schema))
 	if err != nil {
 		return err
 	}
