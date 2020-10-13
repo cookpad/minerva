@@ -162,7 +162,7 @@ func buildSQL(req ExecSearchRequest, idxTable, msgTable string) (*string, error)
 SELECT indices.object_id, indices.seq, indices.tag
 FROM indices
 WHERE %s
-GROUP BY indices.object_id, indices.seq, indices.tag, indices.timestamp
+GROUP BY indices.object_id, indices.timestamp, indices.seq, indices.tag
 HAVING count(distinct(term)) = %d
 LIMIT %d
 )
