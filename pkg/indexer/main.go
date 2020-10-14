@@ -49,7 +49,7 @@ func handleEvent(args handler.Arguments) error {
 		if err := json.Unmarshal([]byte(snsEntity.Message), &s3Event); err != nil {
 			return errors.Wrapf(err, "Fail to unmarshal S3 event in SNS message: %s", snsEntity.Message)
 		}
-		logger.WithField("s3Event", s3Event).Debug("Received S3 Event")
+		logger.WithField("s3Event", s3Event).Info("Received S3 Event")
 
 		if err := handleS3Event(args, s3Event); err != nil {
 			return err
