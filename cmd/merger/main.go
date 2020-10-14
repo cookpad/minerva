@@ -19,12 +19,14 @@ func main() {
 		NewS3:  adaptor.NewS3Client,
 		NewSQS: adaptor.NewSQSClient,
 	}
+	if err := args.BindEnvVars(); err != nil {
+		logger.WithError(err).Fatal("Failed import env vars")
+	}
 
 	app := &cli.App{
 		Name:  "merger",
 		Usage: "Minerva merger",
 		Flags: []cli.Flag{
-
 			&cli.StringFlag{
 				Name:        "sentry-dsn",
 				EnvVars:     []string{"SENTRY_DSN"},
