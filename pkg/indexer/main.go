@@ -77,6 +77,8 @@ func handleS3Event(args handler.Arguments, s3Event events.S3Event) error {
 
 // MakeIndex is a process for one S3 object to make index file.
 func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
+	logger.WithField("record", record).Info("Start MakeIndex")
+
 	if err := validateArguments(args); err != nil {
 		return errors.Wrap(err, "Invalid indexer arguments")
 	}
