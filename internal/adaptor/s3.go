@@ -21,10 +21,18 @@ type S3Client interface {
 	Upload(bucket, key string, body io.Reader, encoding string) error
 }
 
+var awsS3ClientCache map[string]*s3.S3
+
 // NewS3Client creates actual AWS S3 SDK client
 func NewS3Client(region string) S3Client {
+	if client, ok := awsS3ClientCache[region]; ok {
+		return &awsS3Client{client: client}
+	}
+
 	ssn := session.New(&aws.Config{Region: aws.String(region)})
-	return &awsS3Client{client: s3.New(ssn)}
+	client := s3.New(ssn)
+	awsS3ClientCache[region] = client
+	return &awsS3Client{client: client}
 }
 
 type awsS3Client struct {
