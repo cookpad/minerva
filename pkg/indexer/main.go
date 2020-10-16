@@ -97,16 +97,18 @@ func MakeIndex(args handler.Arguments, record events.S3EventRecord) error {
 
 	for q := range makeLogChannel(srcObject, args.Reader) {
 		if q.Err != nil {
+			logger.WithField("q", q).WithError(err).Error("Failed to load logs")
 			return q.Err
 		}
 
 		if err := recordService.Dump(q, objectID, &dstBase); err != nil {
+			logger.WithField("q", q).WithError(err).Error("Failed to dump logs")
 			return err
 		}
 	}
 
 	if err := recordService.Close(); err != nil {
-		return err
+		return errors.Wrap(err, "Failed recordService.Close")
 	}
 
 	rawObjects := recordService.RawObjects()
