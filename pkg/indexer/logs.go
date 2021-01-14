@@ -27,7 +27,11 @@ func makeLogChannel(src models.S3Object, reader *rlogs.Reader) chan *models.LogQ
 
 		for log := range reader.Read(logSource) {
 			if log.Error != nil {
-				ch <- &models.LogQueue{Err: log.Error, Message: string(log.Log.Raw)}
+				var raw string
+				if log.Log != nil {
+					raw = string(log.Log.Raw)
+				}
+				ch <- &models.LogQueue{Err: log.Error, Message: raw}
 				return
 			}
 
