@@ -16,8 +16,9 @@ import (
 )
 
 type loadArguments struct {
-	filePath string
-	memProf  string
+	filePath   string
+	recordPath string
+	memProf    string
 
 	doNotRemoveObjects bool
 	doNotRemoveParquet bool
@@ -34,7 +35,13 @@ func loadCommand(hdlrArgs *handler.Arguments) *cli.Command {
 				Name:        "sqs-event-file",
 				Aliases:     []string{"f"},
 				Destination: &args.filePath,
-				Required:    true,
+				Required:    false,
+			},
+			&cli.StringFlag{
+				Name:        "record-file",
+				Aliases:     []string{"r"},
+				Destination: &args.recordPath,
+				Required:    false,
 			},
 			&cli.StringFlag{
 				Name:        "memory-profile",
@@ -53,19 +60,39 @@ func loadCommand(hdlrArgs *handler.Arguments) *cli.Command {
 				Usage:       "Do not remove source objects after merging",
 				Destination: &args.doNotRemoveParquet,
 			},
+			&cli.StringFlag{
+				Name:        "meta-table-name",
+				Aliases:     []string{"t"},
+				Destination: &hdlrArgs.MetaTableName,
+				Required:    true,
+			},
+			&cli.StringFlag{
+				Name:        "aws-region",
+				Aliases:     []string{"a"},
+				Destination: &hdlrArgs.AwsRegion,
+				Required:    true,
+			},
 		},
 		Action: func(c *cli.Context) error {
 			configure(hdlrArgs)
 
-			if err := loadHandler(hdlrArgs, &args); err != nil {
-				return err
+			if args.filePath != "" {
+				if err := handleSQSMessage(hdlrArgs, &args); err != nil {
+					return err
+				}
+			} else if args.recordPath != "" {
+				if err := handleRawMessage(hdlrArgs, &args); err != nil {
+					return err
+				}
+			} else {
+				return errors.New("Either one of -f and -r is required")
 			}
 			return nil
 		},
 	}
 }
 
-func loadHandler(hdlrArgs *handler.Arguments, args *loadArguments) error {
+func handleSQSMessage(hdlrArgs *handler.Arguments, args *loadArguments) error {
 	handler.SetLogLevel(hdlrArgs.LogLevel)
 
 	raw, err := ioutil.ReadFile(args.filePath)
@@ -77,19 +104,10 @@ func loadHandler(hdlrArgs *handler.Arguments, args *loadArguments) error {
 	if err := json.Unmarshal(raw, &event); err != nil {
 		return errors.Wrap(err, "Failed to parse SQS event file")
 	}
+	logger.WithField("event", event).Info("Loaded event")
 
 	for _, record := range event.Records {
-		var q models.MergeQueue
-		if err := json.Unmarshal([]byte(record.Body), &q); err != nil {
-			return errors.Wrap(err, "Failed to parse JSON event file")
-		}
-
-		logger.WithField("queue", q).Info("Start merging")
-		opt := &merger.MergeOptions{
-			DoNotRemoveSrc:     args.doNotRemoveObjects,
-			DoNotRemoveParquet: args.doNotRemoveParquet,
-		}
-		if err := merger.MergeChunk(*hdlrArgs, &q, opt); err != nil {
+		if err := handleRecord(hdlrArgs, args, []byte(record.Body)); err != nil {
 			return err
 		}
 	}
@@ -104,6 +122,37 @@ func loadHandler(hdlrArgs *handler.Arguments, args *loadArguments) error {
 		if err := pprof.WriteHeapProfile(f); err != nil {
 			return errors.Wrap(err, "Failed to write memory profile")
 		}
+	}
+
+	return nil
+}
+
+func handleRawMessage(hdlrArgs *handler.Arguments, args *loadArguments) error {
+	raw, err := ioutil.ReadFile(args.recordPath)
+	if err != nil {
+		return errors.Wrap(err, "Failed to read event file")
+	}
+
+	if err := handleRecord(hdlrArgs, args, []byte(raw)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func handleRecord(hdlrArgs *handler.Arguments, args *loadArguments, body []byte) error {
+	var q models.MergeQueue
+	if err := json.Unmarshal(body, &q); err != nil {
+		return errors.Wrap(err, "Failed to parse JSON event file")
+	}
+
+	logger.WithField("queue", q).Info("Start merging")
+	opt := &merger.MergeOptions{
+		DoNotRemoveSrc:     args.doNotRemoveObjects,
+		DoNotRemoveParquet: args.doNotRemoveParquet,
+	}
+	if err := merger.MergeChunk(*hdlrArgs, &q, opt); err != nil {
+		return err
 	}
 
 	return nil
