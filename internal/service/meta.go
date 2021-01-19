@@ -52,34 +52,44 @@ func (x *MetaService) PutObjects(items []*repository.MetaRecordObject) error {
 }
 
 //GetObjects retrieves set of MetaRecordObject and converts them to []*models.S3Object
-func (x *MetaService) GetObjects(recordIDs []string, schema models.ParquetSchemaName) ([]*models.S3Object, error) {
-	var items []*repository.MetaRecordObject
-
-	timer := x.newRetryTimer(getObjectsRetryLimit)
-	err := timer.Run(func(i int) (bool, error) {
-		results, err := x.repo.GetRecordObjects(recordIDs, schema)
-		if err != nil && err != dynamo.ErrNotFound {
-			return false, err
-		}
-		if len(results) == len(recordIDs) {
-			items = results
-			return true, nil
-		}
-		logger.WithFields(logrus.Fields{
-			"recordIDs": recordIDs,
-			"results":   results,
-			"error":     err,
-			"count":     i,
-		}).Warn("Retry to get all records from repository")
-		return false, nil
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to GetRecordObjects")
-	}
-
+func (x *MetaService) GetObjects(targetRecordIDs []string, schema models.ParquetSchemaName) ([]*models.S3Object, error) {
 	var objects []*models.S3Object
-	for _, item := range items {
-		objects = append(objects, &item.S3Object)
+
+	const step = 128
+	for i := 0; i < len(targetRecordIDs); i += step {
+		ep := i + step
+		if len(targetRecordIDs) < ep {
+			ep = len(targetRecordIDs)
+		}
+		recordIDs := targetRecordIDs[i:ep]
+
+		var items []*repository.MetaRecordObject
+
+		timer := x.newRetryTimer(getObjectsRetryLimit)
+		err := timer.Run(func(i int) (bool, error) {
+			results, err := x.repo.GetRecordObjects(recordIDs, schema)
+			if err != nil && err != dynamo.ErrNotFound {
+				return false, err
+			}
+			if len(results) == len(recordIDs) {
+				items = results
+				return true, nil
+			}
+			logger.WithFields(logrus.Fields{
+				"recordIDs": recordIDs,
+				"results":   results,
+				"error":     err,
+				"count":     i,
+			}).Warn("Retry to get all records from repository")
+			return false, nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to GetRecordObjects")
+		}
+
+		for _, item := range items {
+			objects = append(objects, &item.S3Object)
+		}
 	}
 	return objects, nil
 }
