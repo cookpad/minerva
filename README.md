@@ -1,4 +1,7 @@
-# minerva [![Build Status](https://travis-ci.org/m-mizutani/minerva.svg?branch=master)](https://travis-ci.org/m-mizutani/minerva)  [![Report card](https://goreportcard.com/badge/github.com/m-mizutani/minerva)](https://goreportcard.com/report/github.com/m-mizutani/minerva)
+> [!WARNING]  
+> This repo is now (as of 2025-02-20) archived and will not receive future updates, security related or otherwise. Use at your own risk.
+
+# minerva 
 
 Serverless Log Search Architecture for Security Monitoring based on Amazon Athena.
 
